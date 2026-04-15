@@ -1,0 +1,59 @@
+{% extends "base_login.html" %}
+
+{% block estilos_extra %}
+    .login-contenedor {
+        display: flex; justify-content: center; align-items: center;
+        min-height: 80vh; padding: 20px;
+    }
+    .login-panel {
+        background: white; border-radius: 12px; padding: 40px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15); width: 100%; max-width: 420px;
+        text-align: center;
+    }
+    .login-panel h2 { color: var(--color-principal); margin-bottom: 8px; font-size: 22px; }
+    .login-panel p { color: #777; font-size: 14px; margin-bottom: 25px; }
+    .login-campo { margin-bottom: 18px; text-align: left; }
+    .login-campo label { display: block; font-size: 13px; font-weight: bold; color: #555; margin-bottom: 5px; }
+    .login-campo input {
+        width: 100%; padding: 12px 15px; border: 1px solid #CCC;
+        border-radius: 8px; font-size: 15px;
+    }
+    .login-campo input:focus { outline: none; border-color: var(--color-principal); box-shadow: 0 0 6px var(--color-sombra); }
+    .login-btn {
+        width: 100%; padding: 14px; background: linear-gradient(135deg, var(--color-principal), var(--color-oscuro));
+        color: white; border: none; border-radius: 8px; font-size: 16px;
+        font-weight: bold; cursor: pointer; transition: opacity 0.2s; margin-top: 10px;
+    }
+    .login-btn:hover { opacity: 0.9; }
+    .link-login { display: block; margin-top: 15px; color: var(--color-principal); font-size: 13px; }
+{% endblock %}
+
+{% block contenido %}
+    <div class="login-contenedor">
+        <div class="login-panel">
+            <div class="login-icono">&#128100;</div>
+            <h2>Crear Cuenta</h2>
+            <p>Registrate en Control Financiero</p>
+
+            <form action="{{ url_for('auth_registro') }}" method="post">
+                <div class="login-campo">
+                    <label>Nombre completo:</label>
+                    <input type="text" name="nombre" placeholder="Tu nombre" required autofocus>
+                </div>
+                <div class="login-campo">
+                    <label>Correo electronico:</label>
+                    <input type="email" name="email" placeholder="tu@correo.com" required>
+                </div>
+                <div class="login-campo">
+                    <label>Contrasena:</label>
+                    <input type="password" name="password" placeholder="Minimo 6 caracteres" required minlength="6">
+                </div>
+                <button type="submit" class="login-btn">CREAR CUENTA</button>
+            </form>
+
+            <a href="{{ url_for('auth_login') }}" class="link-login">
+                Ya tienes cuenta? <strong>Iniciar sesion</strong>
+            </a>
+        </div>
+    </div>
+{% endblock %}

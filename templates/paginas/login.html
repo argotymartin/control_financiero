@@ -1,0 +1,169 @@
+{% extends "base_login.html" %}
+{% from "macros/modal.html" import script_toggle_clave %}
+
+{% block estilos_extra %}
+    .login-contenedor {
+        display: flex; justify-content: center; align-items: center;
+        min-height: 80vh; padding: 20px;
+    }
+    .login-panel {
+        background: white; border-radius: 12px; padding: 40px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15); width: 100%; max-width: 420px;
+        text-align: center;
+    }
+    .login-panel h2 { color: var(--color-principal); margin-bottom: 8px; font-size: 22px; }
+    .login-panel p { color: #777; font-size: 14px; margin-bottom: 25px; }
+    .login-campo { margin-bottom: 18px; text-align: left; }
+    .login-campo label { display: block; font-size: 13px; font-weight: bold; color: #555; margin-bottom: 5px; }
+    .login-campo input {
+        width: 100%; padding: 12px 15px; border: 1px solid #CCC;
+        border-radius: 8px; font-size: 15px;
+    }
+    .login-campo input:focus { outline: none; border-color: var(--color-principal); box-shadow: 0 0 6px var(--color-sombra); }
+    .login-btn {
+        width: 100%; padding: 14px; background: linear-gradient(135deg, var(--color-principal), var(--color-oscuro));
+        color: white; border: none; border-radius: 8px; font-size: 16px;
+        font-weight: bold; cursor: pointer; transition: opacity 0.2s; margin-top: 10px;
+    }
+    .login-btn:hover { opacity: 0.9; }
+    .login-icono { font-size: 50px; margin-bottom: 10px; }
+    .btn-google {
+        background: #fff; color: #333; border: 2px solid #DDD; font-weight: 600;
+    }
+    .btn-google:hover { background: #f5f5f5; }
+    .btn-google img { width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; }
+    .link-recuperar { display: block; margin-top: 15px; color: var(--color-principal); font-size: 13px; }
+    .link-registro { display: block; margin-top: 10px; color: #777; font-size: 13px; }
+{% endblock %}
+
+{% block contenido %}
+    <div class="login-contenedor">
+        <div class="login-panel">
+            <div class="login-icono">&#128274;</div>
+            <h2>Iniciar Sesion</h2>
+            <p>Control Financiero - Supabase Auth</p>
+
+            <form action="{{ url_for('auth_ingresar') }}" method="post">
+                <div class="login-campo">
+                    <label>Correo electronico:</label>
+                    <input type="email" name="email" placeholder="tu@correo.com" required autofocus>
+                </div>
+                <div class="login-campo">
+                    <label>Contrasena:</label>
+                    <div style="position: relative;">
+                        <input type="password" name="password" id="clave-login" placeholder="Tu contrasena" required style="padding-right: 45px;">
+                        <span onclick="toggleClave('clave-login', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 20px; user-select: none;">&#128065;</span>
+                    </div>
+                </div>
+                <button type="submit" class="login-btn">INGRESAR</button>
+            </form>
+
+            <a href="{{ url_for('auth_recuperar') }}" class="link-recuperar">Olvidaste tu contrasena?</a>
+
+            <div style="display: flex; align-items: center; margin: 20px 0;">
+                <hr style="flex: 1; border: none; border-top: 1px solid #DDD;">
+                <span style="padding: 0 15px; color: #999; font-size: 13px;">o</span>
+                <hr style="flex: 1; border: none; border-top: 1px solid #DDD;">
+            </div>
+
+            <button type="button" class="login-btn" id="btn-login-facial" onclick="iniciarLoginFacial()"
+                    style="background: linear-gradient(135deg, #28A745, #1E7E34);">
+                &#128247; INGRESAR CON MI CARA
+            </button>
+
+            <div id="zona-camara" style="display: none; margin-top: 15px;">
+                <video id="camara-login" width="280" height="210" style="border-radius: 8px; border: 3px solid #28A745; display: block; margin: 0 auto;"></video>
+                <canvas id="canvas-login" style="display: none;"></canvas>
+                <p id="estado-facial" style="font-size: 13px; color: #28A745; margin-top: 10px;">Mirate a la camara...</p>
+                <button type="button" class="login-btn" onclick="cancelarLoginFacial()" style="margin-top: 10px; font-size: 13px; background: #DC3545;">
+                    Cancelar
+                </button>
+            </div>
+
+            <a href="{{ url_for('auth_google') }}" class="login-btn btn-google">
+                <img src="https://www.google.com/favicon.ico" alt="G">
+                Iniciar con Google
+            </a>
+
+            <a href="{{ url_for('auth_registro') }}" class="link-registro">
+                No tienes cuenta? <strong>Crear una</strong>
+            </a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ script_toggle_clave() }}
+    <script>
+    var streamLogin = null;
+    var intentoFacial = null;
+
+    function iniciarLoginFacial() {
+        var video = document.getElementById('camara-login');
+        navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(stream) {
+            streamLogin = stream;
+            video.srcObject = stream;
+            video.play();
+            document.getElementById('zona-camara').style.display = 'block';
+            document.getElementById('btn-login-facial').style.display = 'none';
+            document.getElementById('estado-facial').textContent = 'Mirate a la camara...';
+            document.getElementById('estado-facial').style.color = '#28A745';
+            setTimeout(capturarYVerificar, 2000);
+        })
+        .catch(function(err) {
+            alert('No se pudo acceder a la camara: ' + err.message);
+        });
+    }
+
+    function capturarYVerificar() {
+        var video = document.getElementById('camara-login');
+        var canvas = document.getElementById('canvas-login');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+        document.getElementById('estado-facial').textContent = 'Verificando rostro...';
+        document.getElementById('estado-facial').style.color = 'var(--color-principal)';
+
+        fetch('/auth/login-facial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ foto: dataUrl })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                document.getElementById('estado-facial').textContent = 'Bienvenido(a), ' + data.nombre + '!';
+                document.getElementById('estado-facial').style.color = '#28A745';
+                detenerCamara();
+                setTimeout(function() { window.location.href = '/'; }, 1000);
+            } else {
+                document.getElementById('estado-facial').textContent = data.error + ' - Reintentando...';
+                document.getElementById('estado-facial').style.color = '#DC3545';
+                intentoFacial = setTimeout(capturarYVerificar, 2000);
+            }
+        })
+        .catch(function() {
+            document.getElementById('estado-facial').textContent = 'Error de conexion';
+            document.getElementById('estado-facial').style.color = '#DC3545';
+        });
+    }
+
+    function cancelarLoginFacial() {
+        if (intentoFacial) clearTimeout(intentoFacial);
+        detenerCamara();
+        document.getElementById('zona-camara').style.display = 'none';
+        document.getElementById('btn-login-facial').style.display = 'block';
+    }
+
+    function detenerCamara() {
+        if (streamLogin) {
+            streamLogin.getTracks().forEach(function(t) { t.stop(); });
+            streamLogin = null;
+        }
+    }
+    </script>
+{% endblock %}

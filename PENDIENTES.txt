@@ -1,0 +1,107 @@
+=====================================================
+  PENDIENTES - Control Financiero Supabase
+  Funcionalidades por implementar
+=====================================================
+
+
+==============================
+  PRIORIDAD ALTA (proxima sesion)
+==============================
+
+[ ] 1. NOTIFICACIONES PUSH
+       - Globito automatico en el icono sin abrir la app
+       - Avisa cuando alguien sube un pago nuevo
+       - Tecnologia: Web Push API + pywebpush
+       - Costo: Gratis
+
+[ ] 2. MAPA DE UBICACION (GPS)
+       - Mapita que muestre donde esta el dispositivo
+       - Registrar desde donde se subio cada pago
+       - Tecnologia: Geolocation API + OpenStreetMap/Leaflet
+       - Costo: Gratis
+
+
+==============================
+  PRIORIDAD MEDIA
+==============================
+
+[ ] 3. CHATBOT CON IA (Gemini)
+       - El usuario pregunta y el bot responde con datos reales
+       - Ejemplo: "Cuanto se pago en marzo?"
+       - Tecnologia: Google Gemini API (plan gratuito)
+       - Costo: Gratis (15 peticiones/min, 1M tokens/dia)
+       - Necesita: cuenta Gmail + API key de Google AI Studio
+
+[ ] 4. CHAT ENTRE USUARIOS
+       - Mensajes en tiempo real dentro de la app
+       - Historial de conversaciones
+       - Tecnologia: WebSockets + Supabase
+       - Costo: Gratis
+
+[ ] 5. GRAFICAS Y DASHBOARD
+       - Tortas de gastos por categoria
+       - Barras de pagos por mes
+       - Tendencias y comparativos
+       - Tecnologia: Chart.js (libreria gratuita)
+       - Costo: Gratis
+
+
+==============================
+  PRIORIDAD BAJA (futuro)
+==============================
+
+[ ] 6. CLASIFICACION AUTOMATICA DE GASTOS
+       - La IA lee el comprobante y sugiere categoria
+       - Categorias: arriendo, servicios, comida, transporte, etc.
+       - Tecnologia: Gemini API o modelo local
+       - Costo: Gratis con Gemini
+
+[ ] 7. LOGIN CON HUELLA DACTILAR
+       - Entrar a la app con el lector de huella del celular
+       - Tecnologia: WebAuthn API
+       - Costo: Gratis
+
+[ ] 8. CODIGO QR
+       - Generar QR de cada pago para compartir o verificar
+       - Escanear QR para registrar pagos
+       - Tecnologia: qrcode (Python) + lector JS
+       - Costo: Gratis
+
+[ ] 9. ENVIO POR WHATSAPP
+       - Enviar reporte de pagos por WhatsApp
+       - Tecnologia: Twilio API o WhatsApp Business API
+       - Costo: Twilio tiene plan gratuito limitado
+
+[ ] 10. NOTIFICACIONES POR TELEGRAM
+        - Bot de Telegram que avise pagos nuevos
+        - Tecnologia: Telegram Bot API
+        - Costo: Gratis
+
+[ ] 11. COMANDO DE VOZ
+        - "Registrar pago de 200 mil de Nequi"
+        - Tecnologia: Web Speech API
+        - Costo: Gratis
+
+[ ] 12. PREDICCIONES DE GASTO
+        - Predecir cuanto se gastara el proximo mes
+        - Basado en historial de pagos
+        - Tecnologia: Python (pandas, scikit-learn) o Gemini
+        - Costo: Gratis
+
+
+=====================================================
+  YA IMPLEMENTADO
+=====================================================
+
+[x] App web Flask con Supabase
+[x] Lectura OCR de comprobantes
+[x] Reconocimiento facial para login
+[x] Generacion de Excel
+[x] Envio por correo electronico
+[x] PWA (instalable en celular y PC)
+[x] Globito de registros sin revisar (dentro de la app)
+[x] Boton eliminar solo para admin
+[x] Gestion de usuarios
+[x] Deploy en PythonAnywhere
+
+=====================================================

@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block titulo %}Usuarios - Control Financiero{% endblock %}
+
+{% block contenido %}
+    <div style="padding: 20px;">
+        <div class="panel">
+            <h2>Gestionar Usuarios</h2>
+
+            <h3 style="font-size: 15px; margin-top: 15px; color: #555;">Crear nuevo usuario</h3>
+            <form id="form-usuario">
+                <div class="form-grupo">
+                    <div class="form-campo">
+                        <label>Correo electronico:</label>
+                        <input type="email" name="email" placeholder="usuario@correo.com" required>
+                    </div>
+                    <div class="form-campo">
+                        <label>Nombre completo:</label>
+                        <input type="text" name="nombre" placeholder="Nombre del usuario" required>
+                    </div>
+                    <div class="form-campo">
+                        <label>Contrasena:</label>
+                        <input type="password" name="password" placeholder="Minimo 6 caracteres" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-verde">+ Crear Usuario</button>
+            </form>
+
+            <h3 style="font-size: 15px; margin-top: 25px; color: #555;">Usuarios registrados</h3>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; margin-top: 15px;">
+                    <thead>
+                        <tr style="background: var(--color-principal); color: white;">
+                            <th style="padding: 12px; text-align: left;">Email</th>
+                            <th style="padding: 12px; text-align: left;">Nombre</th>
+                            <th style="padding: 12px; text-align: center;">Rostro</th>
+                            <th style="padding: 12px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-usuarios">
+                        <tr>
+                            <td colspan="4" style="padding: 20px; text-align: center; color: #999;">Cargando usuarios...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para registrar rostro -->
+    <div id="modal-rostro" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; border-radius:12px; padding:30px; text-align:center; max-width:400px; width:90%;">
+            <h3 style="color:var(--color-principal); margin-bottom:10px;">Registrar Rostro</h3>
+            <p style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 15px;" id="modal-email"></p>
+            <video id="camara-modal" width="100%" style="border-radius:8px; border:3px solid var(--color-principal); margin:0 auto; display: block;"></video>
+            <canvas id="canvas-modal" style="display:none;"></canvas>
+            <p id="estado-modal" style="font-size:13px; color:var(--color-principal); margin:10px 0;">Ponte frente a la camara</p>
+            <div style="margin-top:10px; display:flex; gap:10px; justify-content:center;">
+                <button type="button" class="btn btn-verde" onclick="capturarYGuardarRostro()">
+                    &#128247; Tomar Foto
+                </button>
+                <button type="button" class="btn btn-rojo" onclick="cerrarModalRostro()">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    var streamModal = null;
+    var emailModal = '';
+
+    function cargarUsuarios() {
+        fetch('/api/usuarios')
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                const tabla = document.getElementById('tabla-usuarios');
+                tabla.innerHTML = '';
+                data.usuarios.forEach(usuario => {
+                    const fila = document.createElement('tr');
+                    fila.style.borderBottom = '1px solid #DDD';
+                    fila.innerHTML = `
+                        <td style="padding: 12px;">${usuario.email}</td>
+                        <td style="padding: 12px;">${usuario.nombre || '-'}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            ${usuario.tiene_rostro ? '<span style="color: #28A745;">✓</span>' : '<span style="color: #999;">✗</span>'}
+                        </td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button type="button" class="btn btn-azul" style="font-size: 12px; padding: 6px 12px;"
+                                    onclick="abrirModalRostro('${usuario.email}')">
+                                &#128247; ${usuario.tiene_rostro ? 'Actualizar' : 'Registrar'}
+                            </button>
+                        </td>
+                    `;
+                    tabla.appendChild(fila);
+                });
+            }
+        });
+    }
+
+    function abrirModalRostro(email) {
+        emailModal = email;
+        document.getElementById('modal-email').textContent = email;
+        document.getElementById('modal-rostro').style.display = 'flex';
+        var video = document.getElementById('camara-modal');
+        navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            streamModal = stream;
+            video.srcObject = stream;
+            video.play();
+        });
+    }
+
+    function capturarYGuardarRostro() {
+        var video = document.getElementById('camara-modal');
+        var canvas = document.getElementById('canvas-modal');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+        fetch('/api/registrar-rostro-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailModal, foto: dataUrl })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                cerrarModalRostro();
+                cargarUsuarios();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+
+    function cerrarModalRostro() {
+        document.getElementById('modal-rostro').style.display = 'none';
+        if (streamModal) {
+            streamModal.getTracks().forEach(t => t.stop());
+        }
+    }
+
+    document.getElementById('form-usuario').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch('/api/crear-usuario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: formData.get('email'),
+                password: formData.get('password'),
+                nombre: formData.get('nombre')
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                alert('Usuario creado');
+                this.reset();
+                cargarUsuarios();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    });
+
+    cargarUsuarios();
+    </script>
+{% endblock %}

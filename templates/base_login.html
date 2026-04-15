@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo %}Iniciar Sesion - Control Financiero{% endblock %}</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1565C0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <style>
+        :root {
+            --color-principal: #42A5F5;
+            --color-oscuro: #1565C0;
+            --color-borde: #2196F3;
+            --color-hover: #E3F2FD;
+            --color-claro: #BBDEFB;
+            --color-sombra: rgba(66,165,245,0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #F0F2F5; color: #333; }
+        .header {
+            background: linear-gradient(135deg, var(--color-principal), var(--color-oscuro));
+            color: white; padding: 25px 30px; text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .badge-supabase {
+            display: inline-block; background: rgba(255,255,255,0.2);
+            padding: 2px 10px; border-radius: 12px; font-size: 11px; margin-top: 5px;
+        }
+        .mensaje {
+            max-width: 800px; margin: 15px auto; padding: 12px 20px;
+            border-radius: 8px; font-size: 14px; text-align: center;
+        }
+        .mensaje-exito { background: #D4EDDA; color: #155724; border: 1px solid #C3E6CB; }
+        .mensaje-error { background: #F8D7DA; color: #721C24; border: 1px solid #F5C6CB; }
+        .mensaje-info { background: #D1ECF1; color: #0C5460; border: 1px solid #BEE5EB; }
+        .btn {
+            display: inline-block; padding: 10px 20px; border: none; border-radius: 6px;
+            font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: none;
+            color: white; transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-rojo { background: #D44638; }
+        .footer {
+            text-align: center; padding: 15px; color: #999; font-size: 12px;
+            background: #F0F2F5; position: sticky; bottom: 0; z-index: 100;
+            border-top: 1px solid #DDD;
+        }
+        {% block estilos_extra %}{% endblock %}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Control Financiero</h1>
+        <span class="badge-supabase">Supabase</span>
+    </div>
+
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+    {% if mensajes %}
+    {% for categoria, mensaje in mensajes %}
+    <div class="mensaje mensaje-{{ categoria }}">{{ mensaje }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {% block contenido %}{% endblock %}
+
+    <div class="footer">Control Financiero (Supabase)</div>
+
+    {% block scripts %}{% endblock %}
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
+    </script>
+</body>
+</html>

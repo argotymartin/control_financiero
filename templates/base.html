@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo %}Control Financiero{% endblock %}</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1565C0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <style>
+        :root {
+            --color-principal: #42A5F5;
+            --color-oscuro: #1565C0;
+            --color-borde: #2196F3;
+            --color-hover: #E3F2FD;
+            --color-claro: #BBDEFB;
+            --color-sombra: rgba(66,165,245,0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #F0F2F5; color: #333; }
+        .header {
+            background: linear-gradient(135deg, var(--color-principal), var(--color-oscuro));
+            color: white; padding: 25px 30px; text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .cabecera-fija { position: sticky; top: 0; z-index: 100; }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .header p { font-size: 14px; opacity: 0.85; }
+        .badge-supabase {
+            display: inline-block; background: rgba(255,255,255,0.2);
+            padding: 2px 10px; border-radius: 12px; font-size: 11px; margin-top: 5px;
+        }
+        .mensaje {
+            max-width: 800px; margin: 15px auto; padding: 12px 20px;
+            border-radius: 8px; font-size: 14px; text-align: center;
+        }
+        .mensaje-exito { background: #D4EDDA; color: #155724; border: 1px solid #C3E6CB; }
+        .mensaje-error { background: #F8D7DA; color: #721C24; border: 1px solid #F5C6CB; }
+        .mensaje-info { background: #D1ECF1; color: #0C5460; border: 1px solid #BEE5EB; }
+        .barra-acciones {
+            display: flex; justify-content: center; gap: 12px;
+            padding: 15px 20px; flex-wrap: wrap; background: #F0F2F5;
+        }
+        .btn {
+            display: inline-block; padding: 10px 20px; border: none; border-radius: 6px;
+            font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: none;
+            color: white; transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-azul { background: #0078D4; }
+        .btn-verde { background: #217346; }
+        .btn-rojo { background: #D44638; }
+        .resumen { display: flex; justify-content: center; gap: 30px; padding: 20px; flex-wrap: wrap; }
+        .tarjeta {
+            background: white; border-radius: 10px; padding: 20px 30px;
+            text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 180px;
+        }
+        .tarjeta .numero { font-size: 28px; font-weight: bold; color: var(--color-principal); }
+        .tarjeta .etiqueta { font-size: 13px; color: #777; margin-top: 5px; }
+        .contenedor-tabla {
+            padding: 0 20px 30px; overflow: auto; max-height: 60vh;
+        }
+        table {
+            width: 100%; border-collapse: collapse; background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        thead th {
+            background: var(--color-principal); color: white; padding: 14px 12px;
+            font-size: 13px; text-align: center; white-space: nowrap;
+            border: 1px solid var(--color-borde);
+            position: sticky; top: 0; z-index: 10;
+        }
+        tbody td {
+            padding: 12px; text-align: center; vertical-align: middle;
+            border: 1px solid #D0D0D0; font-size: 14px;
+        }
+        tbody tr:hover { background: var(--color-hover); }
+        tbody tr:nth-child(even) { background: #F8F9FA; }
+        tbody tr:nth-child(even):hover { background: var(--color-hover); }
+        .valor { text-align: right; font-weight: 500; }
+        .thumb-container {
+            width: 80px; height: 60px; margin: 0 auto; overflow: hidden;
+            border-radius: 5px; cursor: pointer; border: 2px solid #DDD; transition: border-color 0.2s;
+        }
+        .thumb-container:hover { border-color: var(--color-principal); }
+        .thumb-container img { width: 100%; height: 100%; object-fit: cover; }
+        .sin-imagen {
+            width: 80px; height: 60px; margin: 0 auto; background: #F0F0F0;
+            border-radius: 5px; display: flex; align-items: center; justify-content: center;
+            color: #AAA; font-size: 12px;
+        }
+        tfoot { position: sticky; bottom: 0; z-index: 10; }
+        .fila-total { background: var(--color-principal) !important; color: white; font-weight: bold; }
+        .fila-total td {
+            color: white; background: var(--color-principal);
+            padding: 14px 12px; border: 1px solid var(--color-borde);
+        }
+        .btn-eliminar-fila {
+            background: #CC0000; color: white; border: none;
+            padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+        }
+        .btn-eliminar-fila:hover { background: #990000; }
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 1000;
+            justify-content: center; align-items: center; cursor: pointer;
+        }
+        .modal.activo { display: flex; }
+        .modal img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        .modal .cerrar {
+            position: absolute; top: 20px; right: 30px;
+            color: white; font-size: 36px; cursor: pointer; font-weight: bold;
+        }
+        .modal .cerrar:hover { color: #FF6B6B; }
+        .panel {
+            max-width: 900px; margin: 0 auto; background: white;
+            border-radius: 10px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .panel h2 { margin-bottom: 15px; color: var(--color-principal); font-size: 18px; }
+        .form-grupo { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+        .form-campo label { display: block; font-size: 13px; font-weight: bold; color: #555; margin-bottom: 4px; }
+        .form-campo input {
+            width: 100%; padding: 8px 12px; border: 1px solid #CCC;
+            border-radius: 5px; font-size: 14px;
+        }
+        .form-campo input:focus { outline: none; border-color: var(--color-principal); box-shadow: 0 0 4px var(--color-sombra); }
+        .lista-correos {
+            list-style: none; padding: 0; max-height: 200px; overflow-y: auto;
+            border: 1px solid #DDD; border-radius: 5px; margin: 10px 0;
+        }
+        .lista-correos li {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; border-bottom: 1px solid #EEE;
+        }
+        .lista-correos li:last-child { border-bottom: none; }
+        .fila-agregar { display: flex; gap: 8px; margin-top: 10px; }
+        .fila-agregar input { flex: 1; padding: 8px 12px; border: 1px solid #CCC; border-radius: 5px; }
+        .footer {
+            text-align: center; padding: 15px; color: #999; font-size: 12px;
+            background: #F0F2F5; position: sticky; bottom: 0; z-index: 100;
+            border-top: 1px solid #DDD;
+        }
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+            border: 2px solid var(--color-claro); vertical-align: middle;
+        }
+        .avatar-iniciales {
+            width: 36px; height: 36px; border-radius: 50%; display: inline-flex;
+            align-items: center; justify-content: center; background: var(--color-claro);
+            color: var(--color-oscuro); font-weight: bold; font-size: 14px; vertical-align: middle;
+        }
+        .barra-usuario {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 10px; padding: 8px 20px; background: var(--color-oscuro);
+        }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 18px; }
+            .resumen { gap: 10px; }
+            .tarjeta { padding: 12px 18px; min-width: 140px; }
+            .tarjeta .numero { font-size: 20px; }
+            thead th, tbody td { padding: 8px 6px; font-size: 12px; }
+            .thumb-container { width: 60px; height: 45px; }
+            .sin-imagen { width: 60px; height: 45px; }
+            .form-grupo { grid-template-columns: 1fr; }
+            .barra-acciones { gap: 8px; }
+            .btn { padding: 8px 14px; font-size: 12px; }
+        }
+        {% block estilos_extra %}{% endblock %}
+    </style>
+</head>
+<body>
+    <div class="cabecera-fija">
+        <div class="header">
+            <h1>Control Financiero</h1>
+            <span class="badge-supabase">Supabase</span>
+            {% if fecha_desde %}
+            <p>Desde: {{ fecha_desde }} - Hasta: {{ fecha_hasta }}</p>
+            {% endif %}
+        </div>
+
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% if mensajes %}
+        {% for categoria, mensaje in mensajes %}
+        <div class="mensaje mensaje-{{ categoria }}">{{ mensaje }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="barra-usuario">
+            <span class="avatar-iniciales">{{ nombre_usuario[0] | upper if nombre_usuario else '?' }}</span>
+            <span style="color: var(--color-claro); font-size: 13px;">
+                {{ nombre_usuario }} ({{ email_usuario }})
+            </span>
+            <a href="{{ url_for('auth_logout') }}" style="color: #FF9999; font-size: 13px; text-decoration: none;">
+                Cerrar Sesion
+            </a>
+        </div>
+
+        <div class="barra-acciones">
+            <a href="/" class="btn btn-azul">Inicio</a>
+            <a href="/nuevo" class="btn btn-azul">Agregar Movimiento</a>
+            <a href="/descargar-excel" class="btn btn-verde">Descargar Excel</a>
+            <a href="/correo" class="btn btn-rojo">Enviar por Correo</a>
+            <a href="/registrar-rostro" class="btn" style="background: #28A745;">&#128247; Mi Rostro</a>
+            {% if es_admin %}
+            <a href="/usuarios" class="btn" style="background: #6C3483;">Usuarios</a>
+            {% endif %}
+            {% block nav_extra %}{% endblock %}
+        </div>
+    </div>
+
+    {% block contenido %}{% endblock %}
+
+    <div class="footer">Control Financiero (Supabase)</div>
+
+    {% block scripts %}{% endblock %}
+    <script src="/static/push-notify.js"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
+    </script>
+</body>
+</html>

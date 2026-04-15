@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block titulo %}Registrar Rostro - Control Financiero{% endblock %}
+
+{% block contenido %}
+    <div style="max-width: 500px; margin: 40px auto; padding: 20px;">
+        <div class="panel">
+            <h2>Registrar Rostro para Login</h2>
+            <p style="color: #666; margin-bottom: 20px;">Captura una foto de tu rostro para poder entrar a la aplicacion con reconocimiento facial.</p>
+
+            <div style="background: #E8F5E9; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; text-align: center;">
+                <video id="camara-rostro" width="100%" style="border-radius: 8px; border: 2px solid var(--color-principal); display: none; margin-bottom: 15px;"></video>
+                <canvas id="canvas-rostro" style="display: none;"></canvas>
+                <img id="foto-preview" style="display: none; border-radius: 8px; border: 2px solid #4CAF50; width: 100%; margin-bottom: 15px; object-fit: cover;">
+
+                <p id="estado-rostro" style="font-size: 14px; color: #333; margin: 15px 0;">Listo para capturar</p>
+
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button type="button" class="btn btn-azul" onclick="iniciarCamara()" id="btn-iniciar">
+                        &#128247; Iniciar Camara
+                    </button>
+                    <button type="button" class="btn btn-verde" onclick="capturarFoto()" id="btn-capturar" style="display: none;">
+                        Tomar Foto
+                    </button>
+                    <button type="button" class="btn btn-rojo" onclick="reiniciarCamara()" id="btn-reiniciar" style="display: none;">
+                        Repetir
+                    </button>
+                </div>
+
+                <button type="button" class="btn btn-verde" onclick="guardarRostro()" id="btn-guardar" style="display: none; width: 100%; margin-top: 15px;">
+                    ✓ Guardar Rostro
+                </button>
+            </div>
+
+            <a href="/" class="btn btn-azul" style="display: block; margin-top: 20px; text-align: center;">
+                Volver al Inicio
+            </a>
+        </div>
+    </div>
+
+    <script>
+    var streamRostro = null;
+
+    function iniciarCamara() {
+        var video = document.getElementById('camara-rostro');
+        navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(stream) {
+            streamRostro = stream;
+            video.style.display = 'block';
+            video.srcObject = stream;
+            video.play();
+            document.getElementById('btn-iniciar').style.display = 'none';
+            document.getElementById('btn-capturar').style.display = 'inline-block';
+            document.getElementById('estado-rostro').textContent = 'Camara activa - ponte frente a la pantalla';
+            document.getElementById('estado-rostro').style.color = '#4CAF50';
+        })
+        .catch(function(err) {
+            alert('No se pudo acceder a la camara: ' + err.message);
+        });
+    }
+
+    function capturarFoto() {
+        var video = document.getElementById('camara-rostro');
+        var canvas = document.getElementById('canvas-rostro');
+        var preview = document.getElementById('foto-preview');
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        preview.src = dataUrl;
+        preview.style.display = 'block';
+
+        video.style.display = 'none';
+        if (streamRostro) {
+            streamRostro.getTracks().forEach(function(t) { t.stop(); });
+        }
+
+        document.getElementById('btn-capturar').style.display = 'none';
+        document.getElementById('btn-reiniciar').style.display = 'inline-block';
+        document.getElementById('btn-guardar').style.display = 'inline-block';
+        document.getElementById('estado-rostro').textContent = 'Foto capturada - haz click en Guardar';
+        document.getElementById('estado-rostro').style.color = '#4CAF50';
+    }
+
+    function reiniciarCamara() {
+        document.getElementById('foto-preview').style.display = 'none';
+        document.getElementById('camara-rostro').style.display = 'block';
+        document.getElementById('btn-capturar').style.display = 'inline-block';
+        document.getElementById('btn-reiniciar').style.display = 'none';
+        document.getElementById('btn-guardar').style.display = 'none';
+        document.getElementById('estado-rostro').textContent = 'Camara activa - ponte frente a la pantalla';
+
+        var video = document.getElementById('camara-rostro');
+        navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(stream) {
+            streamRostro = stream;
+            video.srcObject = stream;
+            video.play();
+        });
+    }
+
+    function guardarRostro() {
+        var preview = document.getElementById('foto-preview');
+        var dataUrl = preview.src;
+
+        document.getElementById('estado-rostro').textContent = 'Guardando rostro...';
+        document.getElementById('estado-rostro').style.color = 'var(--color-principal)';
+
+        fetch('/api/registrar-rostro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ foto: dataUrl })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                document.getElementById('estado-rostro').textContent = '✓ Rostro registrado correctamente!';
+                document.getElementById('estado-rostro').style.color = '#4CAF50';
+                document.getElementById('btn-guardar').style.display = 'none';
+                setTimeout(function() { window.location.href = '/'; }, 2000);
+            } else {
+                document.getElementById('estado-rostro').textContent = 'Error: ' + data.error;
+                document.getElementById('estado-rostro').style.color = '#DC3545';
+            }
+        })
+        .catch(function(err) {
+            document.getElementById('estado-rostro').textContent = 'Error de conexion: ' + err;
+            document.getElementById('estado-rostro').style.color = '#DC3545';
+        });
+    }
+    </script>
+{% endblock %}

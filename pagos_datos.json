@@ -1,0 +1,108 @@
+[
+  {
+    "fecha": "01/10/2025",
+    "valor": 200000,
+    "medio": "Banco de Bogota / Transfiya",
+    "referencia": "02MW8pWCDKt5Cc6uC",
+    "observacion": "1er pago",
+    "imagen": "1er_pago_200000.jpeg"
+  },
+  {
+    "fecha": "16/10/2025",
+    "valor": 200000,
+    "medio": "Banco de Bogota / Nequi",
+    "referencia": "9787877302341208712033130423392772",
+    "observacion": "2do pago - Liliana Patricia Moreno Amado",
+    "imagen": "2do_pago_200000_400000.jpeg"
+  },
+  {
+    "fecha": "01/11/2025",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M12114517",
+    "observacion": "3ra cuota - Enviado por Livio Martin Argoty Lucero",
+    "imagen": "3er_pago_200000_600000.jpeg"
+  },
+  {
+    "fecha": "15/11/2025",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M02839783",
+    "observacion": "4ta cuota",
+    "imagen": "4to_pago_200000_800000.jpeg"
+  },
+  {
+    "fecha": "30/11/2025",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M18224863",
+    "observacion": "5ta cuota",
+    "imagen": "5to_pago_200000_1000000.jpeg"
+  },
+  {
+    "fecha": "17/12/2025",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M06364242",
+    "observacion": "6ta cuota",
+    "imagen": "6to_pago_200000_1200000.jpeg"
+  },
+  {
+    "fecha": "01/01/2026",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M07777160",
+    "observacion": "7ma cuota",
+    "imagen": "7ma_pago_200000_1400000.jpeg"
+  },
+  {
+    "fecha": "06/01/2026",
+    "valor": 300000,
+    "medio": "Nequi",
+    "referencia": "M05642263",
+    "observacion": "8va cuota",
+    "imagen": "8ta_pago_300000_1700000.jpeg"
+  },
+  {
+    "fecha": "31/01/2026",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M05153763",
+    "observacion": "9na cuota",
+    "imagen": "9na_cuota_200000_1900000.jpeg"
+  },
+  {
+    "fecha": "16/02/2026",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M22820548",
+    "observacion": "10ma cuota",
+    "imagen": "10_cuota_200000_2100000.jpeg"
+  },
+  {
+    "fecha": "28/02/2026",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M12993665",
+    "observacion": "Liliana Moreno",
+    "imagen": "11_pago_200000_2300000.jpeg"
+  },
+  {
+    "fecha": "14/03/2026",
+    "valor": 200000,
+    "medio": "Nequi",
+    "referencia": "M15975635",
+    "observacion": "Liliana Moreno",
+    "imagen": "12_pago_200000_2500000.jpeg"
+  },
+  {
+    "fecha": "31/03/2026",
+    "valor": 200000,
+    "tipo": "egreso",
+    "concepto": "",
+    "medio": "Nequi",
+    "referencia": "3",
+    "observacion": "Liliana Moreno",
+    "imagen": "13_pago_200000_2700000.jpeg"
+  }
+]

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block titulo %}Enviar por Correo{% endblock %}
+
+{% block contenido %}
+    <div style="padding: 20px;">
+        <div class="panel">
+            <h2>Enviar por Correo Electronico</h2>
+            <p style="margin-bottom: 5px; color: #555;">
+                <strong>Archivo:</strong> control_financiero.zip (Excel + comprobantes)<br>
+                <strong>Total:</strong> ${{ '{:,.0f}'.format(total) }} - {{ num_pagos }} pagos<br>
+                <strong>Remitente:</strong> {{ remitente }}
+            </p>
+            <h3 style="margin-top: 15px; font-size: 15px;">Destinatarios:</h3>
+            <ul class="lista-correos">
+                {% for correo in destinatarios %}
+                <li>
+                    <span>{{ correo }}</span>
+                    <form action="/quitar-destinatario" method="post" style="display:inline;">
+                        <input type="hidden" name="correo" value="{{ correo }}">
+                        <button type="submit" class="btn-eliminar-fila">Quitar</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            <form action="/agregar-destinatario" method="post" class="fila-agregar">
+                <input type="email" name="correo" placeholder="correo@ejemplo.com" required>
+                <button type="submit" class="btn btn-azul">+ Agregar</button>
+            </form>
+            <div style="text-align: center; margin-top: 20px;">
+                <form action="/enviar-correo" method="post"
+                      onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Enviando...';">
+                    <button type="submit" class="btn btn-rojo" style="font-size: 16px; padding: 12px 30px;">
+                        ENVIAR CORREO
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

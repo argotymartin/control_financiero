@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "macros/formulario.html" import campo_texto, campo_select, grupo_campos %}
+
+{% block titulo %}Agregar Movimiento{% endblock %}
+
+{% block contenido %}
+    <div style="padding: 20px;">
+        <div class="panel">
+            <h2>Cargar Comprobante</h2>
+            <form action="/procesar-imagen" method="post" enctype="multipart/form-data">
+                <div class="form-campo" style="margin-bottom: 15px;">
+                    <label>Seleccionar imagen del comprobante:</label>
+                    <input type="file" name="imagen" accept="image/*" required
+                           style="padding: 10px; border: 2px dashed var(--color-principal); border-radius: 8px; width: 100%; cursor: pointer;">
+                </div>
+                <button type="submit" class="btn btn-azul">Leer imagen con OCR</button>
+            </form>
+            {% if datos %}
+            <div style="padding: 10px; border-radius: 5px; margin: 10px 0; background: #D4EDDA; color: #155724; font-size: 13px; text-align: center;">
+                Datos extraidos de la imagen. Revisa y confirma.
+            </div>
+            <form action="/agregar" method="post">
+                <input type="hidden" name="imagen" value="{{ datos.imagen }}">
+                {% call grupo_campos() %}
+                    {{ campo_select('tipo', 'Tipo', [('egreso', 'Egreso (pago/gasto)'), ('ingreso', 'Ingreso (nomina/consignacion)')]) }}
+                    {{ campo_texto('fecha', 'Fecha', valor=datos.fecha) }}
+                    {{ campo_texto('valor', 'Valor $', valor=datos.valor) }}
+                {% endcall %}
+                {% call grupo_campos() %}
+                    {{ campo_texto('concepto', 'Concepto', placeholder='Ej: Nomina, Arriendo, Servicios') }}
+                    {{ campo_texto('medio', 'Medio de Pago', valor=datos.medio) }}
+                    {{ campo_texto('referencia', 'Referencia', valor=datos.referencia) }}
+                {% endcall %}
+                {% call grupo_campos(columnas="1fr") %}
+                    {{ campo_texto('observacion', 'Observacion', valor=datos.observacion) }}
+                {% endcall %}
+                <div style="text-align: right; margin-top: 15px;">
+                    <button type="submit" class="btn btn-verde" style="font-size: 16px; padding: 12px 30px;">
+                        CONFIRMAR Y REGISTRAR
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

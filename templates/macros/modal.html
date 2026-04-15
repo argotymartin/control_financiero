@@ -1,0 +1,38 @@
+{# =============================================
+   Macros de modales y scripts compartidos
+   ============================================= #}
+
+{% macro modal_imagen() %}
+<div class="modal" id="modal" onclick="cerrarModal()">
+    <span class="cerrar">&times;</span>
+    <img id="modal-img" src="" alt="Comprobante">
+</div>
+<script>
+    function verImagen(src) {
+        document.getElementById('modal-img').src = src;
+        document.getElementById('modal').classList.add('activo');
+    }
+    function cerrarModal() {
+        document.getElementById('modal').classList.remove('activo');
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') cerrarModal();
+    });
+</script>
+{% endmacro %}
+
+
+{% macro script_toggle_clave() %}
+<script>
+function toggleClave(id, btn) {
+    var input = document.getElementById(id);
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '&#128064;';
+    } else {
+        input.type = 'password';
+        btn.innerHTML = '&#128065;';
+    }
+}
+</script>
+{% endmacro %}

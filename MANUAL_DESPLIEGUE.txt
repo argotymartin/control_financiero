@@ -1,0 +1,211 @@
+=====================================================
+  MANUAL DE DESPLIEGUE - Control Financiero Supabase
+  Checklist paso a paso
+=====================================================
+
+
+==============================
+  PARTE 1: SUPABASE (la nube)
+==============================
+
+[ ] PASO 1 - Crear cuenta en Supabase
+      1. Abrir https://supabase.com
+      2. Click en "Start your project" (iniciar proyecto)
+      3. Puedes entrar con tu cuenta de GitHub o con correo
+      4. Es GRATIS (el plan gratuito es suficiente)
+
+[ ] PASO 2 - Crear un proyecto nuevo
+      1. Click en "New Project"
+      2. Nombre: control-financiero (o el que quieras)
+      3. Contrasena: inventate una y ANOTALA
+      4. Region: South America (Sao Paulo) - la mas cercana
+      5. Click en "Create new project"
+      6. Espera 1-2 minutos mientras se crea
+
+[ ] PASO 3 - Crear las tablas en la base de datos
+      1. En el menu izquierdo de Supabase, click en "SQL Editor"
+      2. Click en "New query" (nueva consulta)
+      3. Abre el archivo: supabase_setup.sql (esta en tu carpeta)
+      4. Copia TODO el contenido del archivo
+      5. Pegalo en el editor SQL de Supabase
+      6. Click en el boton "Run" (ejecutar)
+      7. Debe aparecer "Success" (exito)
+      *** Esto crea:
+          - Tabla "usuarios" (con el admin)
+          - Tabla "pagos"
+          - Tabla "destinatarios"
+          - Bucket "comprobantes" (para imagenes de pagos)
+          - Bucket "rostros" (para reconocimiento facial)
+
+[ ] PASO 4 - Verificar que las tablas se crearon
+      1. En el menu izquierdo, click en "Table Editor"
+      2. Debes ver 3 tablas: usuarios, pagos, destinatarios
+      3. Click en "usuarios" - debe aparecer el usuario "admin"
+      4. Click en "destinatarios" - deben aparecer 2 correos
+
+[ ] PASO 5 - Obtener las credenciales (MUY IMPORTANTE)
+      1. Menu izquierdo > "Project Settings" (icono de engranaje)
+      2. Click en "API" (en la seccion de configuracion)
+      3. Copia estos dos valores:
+
+         Project URL:
+         ____________________________________________
+         (algo como https://xxxxx.supabase.co)
+
+         service_role key (la llave SECRETA, NO la anon):
+         ____________________________________________
+         (es una cadena larga que empieza con "eyJ...")
+
+      *** OJO: Copia la "service_role" key, NO la "anon" key
+      *** La service_role tiene acceso completo a la base de datos
+
+
+==============================
+  PARTE 2: TU COMPUTADOR
+==============================
+
+[ ] PASO 6 - Verificar que tienes Python instalado
+      Abre una terminal y escribe:
+
+         python3 --version
+
+      Debe decir Python 3.10 o superior.
+      Si no lo tienes, instala con:
+
+         sudo apt install python3
+
+[ ] PASO 7 - Instalar las librerias necesarias
+      En la terminal, ejecuta este comando:
+
+         pip3 install flask supabase pytesseract Pillow openpyxl face_recognition numpy --break-system-packages
+
+      Espera a que termine (puede tardar varios minutos por face_recognition).
+
+      Si face_recognition da error, primero instala:
+
+         sudo apt install cmake
+         pip3 install dlib --break-system-packages
+         pip3 install face_recognition --break-system-packages
+
+[ ] PASO 8 - Instalar Tesseract (para leer imagenes con OCR)
+      En la terminal:
+
+         sudo apt install tesseract-ocr tesseract-ocr-spa
+
+[ ] PASO 9 - Configurar las credenciales de Supabase
+      Abre el archivo: iniciar_supabase.sh
+      Verifica que tenga tus datos correctos:
+
+         export SUPABASE_URL='https://TU-PROYECTO.supabase.co'
+         export SUPABASE_KEY='tu-service-role-key-aqui'
+
+      Reemplaza con los valores que copiaste en el PASO 5.
+
+[ ] PASO 10 - Dar permiso de ejecucion al script
+      En la terminal, ve a la carpeta del proyecto:
+
+         cd /home/margoty/Documentos/pagos_liliana
+         chmod +x iniciar_supabase.sh
+
+
+==============================
+  PARTE 3: EJECUTAR LA APP
+==============================
+
+[ ] PASO 11 - Iniciar la aplicacion
+      En la terminal, desde la carpeta del proyecto:
+
+         ./iniciar_supabase.sh
+
+      Debe aparecer:
+         ==================================================
+           Iniciando Control Financiero (Supabase)...
+         ==================================================
+         * Running on http://0.0.0.0:5052
+
+[ ] PASO 12 - Abrir en el navegador
+      Abre tu navegador (Chrome, Firefox, etc.)
+      Ve a: http://localhost:5052
+
+[ ] PASO 13 - Iniciar sesion
+      Usuario: admin
+      Contrasena: admin123
+
+[ ] PASO 14 - Verificar que todo funciona
+      [ ] Puedes ver la pagina de inicio (tabla de movimientos)
+      [ ] Puedes crear un nuevo movimiento (boton "Nuevo")
+      [ ] Puedes subir una imagen de comprobante
+      [ ] El OCR lee los datos de la imagen
+      [ ] Puedes descargar el Excel
+      [ ] La pagina de correo funciona
+      [ ] Puedes administrar usuarios
+
+
+=====================================================
+  SOLUCION DE PROBLEMAS
+=====================================================
+
+PROBLEMA: "ERROR: Configura las variables de entorno"
+SOLUCION: Las credenciales no estan configuradas.
+          Revisa el archivo iniciar_supabase.sh y asegurate
+          de que SUPABASE_URL y SUPABASE_KEY tienen valores.
+
+PROBLEMA: "ModuleNotFoundError: No module named 'supabase'"
+SOLUCION: Falta instalar la libreria.
+          Ejecuta: pip3 install supabase --break-system-packages
+
+PROBLEMA: "ModuleNotFoundError: No module named 'flask'"
+SOLUCION: Falta instalar Flask.
+          Ejecuta: pip3 install flask --break-system-packages
+
+PROBLEMA: "ModuleNotFoundError: No module named 'face_recognition'"
+SOLUCION: Instala con:
+          sudo apt install cmake
+          pip3 install dlib face_recognition --break-system-packages
+
+PROBLEMA: "TesseractNotFoundError" o error de OCR
+SOLUCION: Instala Tesseract:
+          sudo apt install tesseract-ocr tesseract-ocr-spa
+
+PROBLEMA: "Could not connect to Supabase" o error de conexion
+SOLUCION: 1. Verifica que tengas internet
+          2. Verifica que la URL de Supabase sea correcta
+          3. Verifica que la key sea la "service_role" (no la "anon")
+
+PROBLEMA: Las imagenes no se ven o no se suben
+SOLUCION: Revisa que los buckets "comprobantes" y "rostros"
+          existan en Supabase (menu Storage).
+          Si no existen, ejecuta el SQL de nuevo.
+
+PROBLEMA: "Address already in use" (puerto en uso)
+SOLUCION: Otra app esta usando el puerto 5052.
+          Cierra la otra terminal o reinicia el computador.
+
+
+=====================================================
+  RESUMEN RAPIDO
+=====================================================
+
+Para iniciar la app despues de tener todo configurado:
+   1. Abre una terminal
+   2. cd /home/margoty/Documentos/pagos_liliana
+   3. ./iniciar_supabase.sh
+   4. Abre http://localhost:5052 en el navegador
+
+Para detener la app:
+   Presiona Ctrl + C en la terminal
+
+
+=====================================================
+  ARCHIVOS DEL PROYECTO
+=====================================================
+
+web_pagos_supabase.py   <- La aplicacion principal (Supabase)
+web_pagos.py            <- La version anterior (JSON local)
+supabase_setup.sql      <- SQL para crear las tablas
+iniciar_supabase.sh     <- Script para iniciar la app
+requirements.txt        <- Lista de librerias necesarias
+templates/              <- Las paginas HTML de la app
+MANUAL_DESPLIEGUE.txt   <- Este archivo
+
+=====================================================

@@ -1,0 +1,45 @@
+{# =============================================
+   Macros de formulario reutilizables
+   ============================================= #}
+
+{% macro campo_texto(nombre, etiqueta, valor="", placeholder="", requerido=false, tipo="text") %}
+<div class="form-campo">
+    <label>{{ etiqueta }}:</label>
+    <input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}"
+           placeholder="{{ placeholder }}" {% if requerido %}required{% endif %}>
+</div>
+{% endmacro %}
+
+
+{% macro campo_clave(nombre, etiqueta, id_campo, placeholder="Minimo 4 caracteres") %}
+<div class="form-campo">
+    <label>{{ etiqueta }}:</label>
+    <div style="position: relative;">
+        <input type="password" name="{{ nombre }}" id="{{ id_campo }}"
+               placeholder="{{ placeholder }}" required style="padding-right: 45px;">
+        <span onclick="toggleClave('{{ id_campo }}', this)"
+              style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+              cursor: pointer; font-size: 20px; user-select: none;">&#128065;</span>
+    </div>
+</div>
+{% endmacro %}
+
+
+{% macro campo_select(nombre, etiqueta, opciones) %}
+<div class="form-campo">
+    <label>{{ etiqueta }}:</label>
+    <select name="{{ nombre }}"
+            style="width:100%; padding:8px 12px; border:1px solid #CCC; border-radius:5px; font-size:14px;">
+        {% for valor, texto in opciones %}
+        <option value="{{ valor }}">{{ texto }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endmacro %}
+
+
+{% macro grupo_campos(columnas="1fr 1fr 1fr") %}
+<div class="form-grupo" style="grid-template-columns: {{ columnas }};">
+    {{ caller() }}
+</div>
+{% endmacro %}

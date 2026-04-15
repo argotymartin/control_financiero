@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% from "macros/modal.html" import modal_imagen %}
+{% from "macros/tabla.html" import tabla_esqueleto %}
+
+{% block titulo %}Control Financiero{% endblock %}
+
+{% block estilos_extra %}
+    .globo-no-vistos {
+        display: inline-block; background: #DC3545; color: white;
+        border-radius: 50%; min-width: 22px; height: 22px; line-height: 22px;
+        text-align: center; font-size: 12px; font-weight: bold;
+        margin-left: 6px; vertical-align: middle;
+    }
+    .thumb-container { position: relative; }
+    .punto-nuevo {
+        position: absolute; top: -4px; right: -4px; width: 14px; height: 14px;
+        background: #DC3545; border-radius: 50%; border: 2px solid white;
+        z-index: 5;
+    }
+{% endblock %}
+
+{% block contenido %}
+    <div class="resumen">
+        <div class="tarjeta">
+            <div class="numero" style="color: #28A745;">${{ '{:,.0f}'.format(total_ingresos) }}</div>
+            <div class="etiqueta">Total Ingresos</div>
+        </div>
+        <div class="tarjeta">
+            <div class="numero" style="color: #DC3545;">${{ '{:,.0f}'.format(total_egresos) }}</div>
+            <div class="etiqueta">Total Egresos</div>
+        </div>
+        <div class="tarjeta">
+            <div class="numero" style="color: {{ '#28A745' if saldo >= 0 else '#DC3545' }};">${{ '{:,.0f}'.format(saldo) }}</div>
+            <div class="etiqueta">Saldo Actual</div>
+        </div>
+        <div class="tarjeta">
+            <div class="numero">{{ movimientos|length }}</div>
+            <div class="etiqueta">Movimientos</div>
+        </div>
+        <div class="tarjeta">
+            <div class="numero" style="color: #DC3545;" id="conteo-no-vistos">{{ no_vistos }}</div>
+            <div class="etiqueta">Sin revisar
+                {% if no_vistos > 0 %}
+                <span class="globo-no-vistos" id="globo-badge">{{ no_vistos }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','Accion']) %}
+        <tbody>
+            {% set saldo_acum = {'val': 0} %}
+            {% for m in movimientos %}
+            {% set _ = saldo_acum.update({'val': saldo_acum.val + m.credito - m.debito}) %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if m.imagen %}
+                    <div class="thumb-container" onclick="verYMarcar('{{ m.imagen_url }}', {{ m.id }}, this)" id="thumb-{{ m.id }}">
+                        {% if m.id not in ids_vistos %}
+                        <span class="punto-nuevo" id="punto-{{ m.id }}"></span>
+                        {% endif %}
+                        <img src="{{ m.imagen_url }}" alt="Comprobante {{ loop.index }}">
+                    </div>
+                    {% else %}
+                    <div class="sin-imagen">--</div>
+                    {% endif %}
+                </td>
+                <td>{{ m.fecha }}</td>
+                <td>{{ m.concepto }}</td>
+                <td class="valor" style="color: #DC3545;">{{ '${:,.0f}'.format(m.debito) if m.debito else '' }}</td>
+                <td class="valor" style="color: #28A745;">{{ '${:,.0f}'.format(m.credito) if m.credito else '' }}</td>
+                <td class="valor" style="color: {{ '#28A745' if saldo_acum.val >= 0 else '#DC3545' }};">${{ '{:,.0f}'.format(saldo_acum.val) }}</td>
+                <td>{{ m.medio }}</td>
+                <td>{{ m.referencia }}</td>
+                <td>
+                    {% if es_admin %}
+                    <form action="/eliminar/{{ m.id }}" method="post"
+                          onsubmit="return confirm('Eliminar movimiento #{{ loop.index }}?')">
+                        <button type="submit" class="btn-eliminar-fila">Eliminar</button>
+                    </form>
+                    {% else %}
+                    <button class="btn-eliminar-fila" disabled style="opacity:0.4; cursor:not-allowed;">Eliminar</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="fila-total">
+                <td colspan="4">TOTAL</td>
+                <td class="valor">${{ '{:,.0f}'.format(total_egresos) }}</td>
+                <td class="valor">${{ '{:,.0f}'.format(total_ingresos) }}</td>
+                <td class="valor">${{ '{:,.0f}'.format(saldo) }}</td>
+                <td colspan="2">{{ movimientos|length }} movimientos</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    {% endcall %}
+
+    {{ modal_imagen() }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function verYMarcar(url, pagoId, elem) {
+    verImagen(url);
+    var punto = document.getElementById('punto-' + pagoId);
+    if (punto) {
+        punto.remove();
+        fetch('/marcar-visto/' + pagoId, {method: 'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                document.getElementById('conteo-no-vistos').textContent = data.no_vistos;
+                var globo = document.getElementById('globo-badge');
+                if (data.no_vistos > 0) {
+                    if (globo) {
+                        globo.textContent = data.no_vistos;
+                    }
+                } else {
+                    if (globo) globo.remove();
+                }
+                if ('setAppBadge' in navigator) {
+                    if (data.no_vistos > 0) {
+                        navigator.setAppBadge(data.no_vistos);
+                    } else {
+                        navigator.clearAppBadge();
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Badge en el icono de la app al cargar
+if ('setAppBadge' in navigator) {
+    var noVistos = {{ no_vistos }};
+    if (noVistos > 0) {
+        navigator.setAppBadge(noVistos);
+    } else {
+        navigator.clearAppBadge();
+    }
+}
+</script>
+{% endblock %}

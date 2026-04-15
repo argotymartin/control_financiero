@@ -1,0 +1,65 @@
+{# =============================================
+   MACRO: tabla_simple
+   Tabla reutilizable para cualquier listado.
+
+   Parametros:
+     columnas: lista de dicts con 'titulo' y 'campo'
+       Ej: [{'titulo': 'Nombre', 'campo': 'nombre'}, ...]
+     datos: lista de dicts con los datos
+     id_tabla: id HTML opcional
+   ============================================= #}
+{% macro tabla_simple(columnas, datos, id_tabla="") %}
+<div class="contenedor-tabla">
+    <table {% if id_tabla %}id="{{ id_tabla }}"{% endif %}>
+        <thead>
+            <tr>
+                <th>No.</th>
+                {% for col in columnas %}
+                <th>{{ col.titulo }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for fila in datos %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                {% for col in columnas %}
+                <td>
+                    {% if fila is mapping %}
+                        {{ fila.get(col.campo, '') }}
+                    {% else %}
+                        {{ fila|attr(col.campo) }}
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+
+{# =============================================
+   MACRO: tabla_esqueleto
+   Tabla con encabezado definido, cuerpo libre.
+   Usar con {% call %} para definir tbody y tfoot.
+
+   Parametros:
+     columnas: lista de strings con los titulos
+     id_tabla: id HTML opcional
+   ============================================= #}
+{% macro tabla_esqueleto(columnas, id_tabla="") %}
+<div class="contenedor-tabla">
+    <table {% if id_tabla %}id="{{ id_tabla }}"{% endif %}>
+        <thead>
+            <tr>
+                {% for titulo in columnas %}
+                <th>{{ titulo }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        {{ caller() }}
+    </table>
+</div>
+{% endmacro %}

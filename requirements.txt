@@ -1,0 +1,8 @@
+flask
+supabase
+pytesseract
+Pillow
+openpyxl
+face_recognition
+numpy
+pywebpush

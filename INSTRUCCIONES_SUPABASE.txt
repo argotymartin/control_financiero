@@ -1,0 +1,75 @@
+=====================================================
+  INSTRUCCIONES - Control Financiero con Supabase
+=====================================================
+
+PASO 1: Crear cuenta en Supabase (gratis)
+------------------------------------------
+1. Ve a https://supabase.com y crea una cuenta
+2. Crea un nuevo proyecto (elige una region cercana, ej: South America)
+3. Ponle un nombre como "control-financiero"
+4. Anota la contrasena del proyecto (la necesitaras si quieres acceder directo a la BD)
+
+PASO 2: Crear las tablas
+-------------------------
+1. En tu proyecto de Supabase, ve a "SQL Editor" (menu izquierdo)
+2. Copia todo el contenido del archivo: supabase_setup.sql
+3. Pegalo en el editor SQL y dale click a "Run"
+4. Deberia decir "Success" - esto crea las tablas y el usuario admin
+
+PASO 3: Obtener las credenciales
+---------------------------------
+1. Ve a "Project Settings" > "API" (menu izquierdo)
+2. Copia estos dos valores:
+   - Project URL: algo como https://xxxxx.supabase.co
+   - service_role key (NO la anon key): es la llave secreta
+
+PASO 4: Instalar la libreria de Supabase
+------------------------------------------
+Ejecuta en la terminal:
+
+   pip3 install supabase --break-system-packages
+
+PASO 5: Ejecutar la app
+-------------------------
+Ejecuta en la terminal (reemplaza con tus datos):
+
+   export SUPABASE_URL='https://tu-proyecto.supabase.co'
+   export SUPABASE_KEY='tu-service-role-key-aqui'
+   python3 web_pagos_supabase.py
+
+La app abre en: http://localhost:5051
+(La version JSON sigue en el puerto 5050, pueden correr las dos al mismo tiempo)
+
+PASO 6: Login
+--------------
+Usuario: admin
+Contrasena: admin123
+
+=====================================================
+  NOTAS IMPORTANTES
+=====================================================
+
+- La version Supabase corre en el puerto 5051
+- La version JSON sigue funcionando igual en el puerto 5050
+- Los datos de Supabase estan en la nube (no se pierden)
+- Las imagenes se guardan en Supabase Storage (nube)
+    bucket "comprobantes" <- imagenes de pagos
+    bucket "rostros"      <- fotos de reconocimiento facial
+- El reconocimiento facial funciona igual que antes
+- El color de la app cambio a verde para diferenciarla de la version JSON (azul)
+
+=====================================================
+  DIFERENCIAS CON LA VERSION JSON
+=====================================================
+
+Version JSON (web_pagos.py):
+  - Datos guardados en archivos locales (.json)
+  - Imagenes guardadas en la carpeta local
+  - Solo funciona en tu computador
+
+Version Supabase (web_pagos_supabase.py):
+  - Datos guardados en base de datos PostgreSQL en la nube (Supabase)
+  - Imagenes guardadas en Supabase Storage (nube)
+  - Nada se guarda localmente, todo esta en la nube
+  - Lista para subir a un hosting publico
+  - Multiples personas pueden acceder a los mismos datos
