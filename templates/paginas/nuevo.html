@@ -6,7 +6,7 @@
 {% block contenido %}
     <div style="padding: 20px;">
         <div class="panel">
-            <h2>Cargar Comprobante</h2>
+            <h2>Pre-llenar desde imagen (opcional)</h2>
             <form action="/procesar-imagen" method="post" enctype="multipart/form-data">
                 <div class="form-campo" style="margin-bottom: 15px;">
                     <label>Seleccionar imagen del comprobante:</label>
@@ -19,20 +19,25 @@
             <div style="padding: 10px; border-radius: 5px; margin: 10px 0; background: #D4EDDA; color: #155724; font-size: 13px; text-align: center;">
                 Datos extraidos de la imagen. Revisa y confirma.
             </div>
+            {% endif %}
+        </div>
+
+        <div class="panel" style="margin-top: 20px;">
+            <h2>{% if datos %}Confirmar datos{% else %}Ingresar movimiento{% endif %}</h2>
             <form action="/agregar" method="post">
-                <input type="hidden" name="imagen" value="{{ datos.imagen }}">
+                <input type="hidden" name="imagen" value="{{ datos.imagen if datos else '' }}">
                 {% call grupo_campos() %}
                     {{ campo_select('tipo', 'Tipo', [('egreso', 'Egreso (pago/gasto)'), ('ingreso', 'Ingreso (nomina/consignacion)')]) }}
-                    {{ campo_texto('fecha', 'Fecha', valor=datos.fecha) }}
-                    {{ campo_texto('valor', 'Valor $', valor=datos.valor) }}
+                    {{ campo_texto('fecha', 'Fecha', valor=datos.fecha if datos else '', requerido=true) }}
+                    {{ campo_texto('valor', 'Valor $', valor=datos.valor if datos else '', requerido=true) }}
                 {% endcall %}
                 {% call grupo_campos() %}
                     {{ campo_texto('concepto', 'Concepto', placeholder='Ej: Nomina, Arriendo, Servicios') }}
-                    {{ campo_texto('medio', 'Medio de Pago', valor=datos.medio) }}
-                    {{ campo_texto('referencia', 'Referencia', valor=datos.referencia) }}
+                    {{ campo_texto('medio', 'Medio de Pago', valor=datos.medio if datos else '') }}
+                    {{ campo_texto('referencia', 'Referencia', valor=datos.referencia if datos else '') }}
                 {% endcall %}
                 {% call grupo_campos(columnas="1fr") %}
-                    {{ campo_texto('observacion', 'Observacion', valor=datos.observacion) }}
+                    {{ campo_texto('observacion', 'Observacion', valor=datos.observacion if datos else '') }}
                 {% endcall %}
                 <div style="text-align: right; margin-top: 15px;">
                     <button type="submit" class="btn btn-verde" style="font-size: 16px; padding: 12px 30px;">
@@ -40,7 +45,6 @@
                     </button>
                 </div>
             </form>
-            {% endif %}
         </div>
     </div>
 {% endblock %}

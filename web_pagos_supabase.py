@@ -23,6 +23,7 @@ import json
 import os
 import re
 import smtplib
+import subprocess
 import tempfile
 import zipfile
 from email.mime.multipart import MIMEMultipart
@@ -1039,6 +1040,31 @@ def foto_usuario(usuario):
 @login_requerido
 def nuevo():
     return render_template("paginas/nuevo.html", datos=None)
+
+
+@app.route("/deploy", methods=["POST"])
+def deploy():
+    token = request.headers.get("X-Deploy-Token", "")
+    expected = os.environ.get("DEPLOY_TOKEN", "")
+    if not expected or token != expected:
+        return jsonify({"error": "Token invalido"}), 401
+
+    try:
+        pull = subprocess.run(
+            ["git", "-C", os.path.dirname(os.path.abspath(__file__)),
+             "pull", "origin", "main"],
+            capture_output=True, text=True, timeout=60,
+        )
+        wsgi = "/var/www/margoty_pythonanywhere_com_wsgi.py"
+        if os.path.exists(wsgi):
+            os.utime(wsgi, None)
+        return jsonify({
+            "ok": pull.returncode == 0,
+            "stdout": pull.stdout,
+            "stderr": pull.stderr,
+        }), 200 if pull.returncode == 0 else 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/push-subscribe", methods=["POST"])
