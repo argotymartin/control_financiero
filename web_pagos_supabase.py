@@ -70,7 +70,7 @@ supabase_admin = (
 CORREO_REMITENTE = os.environ.get("CORREO_REMITENTE", "argoty.martin@gmail.com")
 CORREO_CLAVE_APP = os.environ.get("CORREO_CLAVE_APP", "")
 
-ADMIN_USUARIOS = os.environ.get("ADMIN_USUARIOS", "admin").split(",")
+ADMIN_USUARIOS = os.environ.get("ADMIN_USUARIOS", "admin,admin@test.com").split(",")
 
 MESES = {
     "enero": "01",
