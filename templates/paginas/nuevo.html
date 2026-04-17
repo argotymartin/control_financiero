@@ -31,6 +31,18 @@
                 <input type="hidden" name="imagen" value="{{ datos.imagen if datos else '' }}">
                 <input type="hidden" name="latitud" id="input-latitud" value="">
                 <input type="hidden" name="longitud" id="input-longitud" value="">
+                {% call grupo_campos(columnas="1fr") %}
+                    <div class="form-campo">
+                        <label>Destinatario:</label>
+                        <select name="contacto_id" id="sel-contacto"
+                                style="width:100%; padding:8px 12px; border:1px solid #CCC; border-radius:5px; font-size:14px;">
+                            <option value="">(sin destinatario)</option>
+                            {% for c in contactos %}
+                            <option value="{{ c.id }}">{{ c.nombre }}{% if c.telefono %} ({{ c.telefono }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endcall %}
                 {% call grupo_campos() %}
                     {{ campo_select('tipo', 'Tipo', [('egreso', 'Egreso (pago/gasto)'), ('ingreso', 'Ingreso (nomina/consignacion)')]) }}
                     {{ campo_texto('fecha', 'Fecha', valor=datos.fecha if datos else '', requerido=true, tipo='date') }}

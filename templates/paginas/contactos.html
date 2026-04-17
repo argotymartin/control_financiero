@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block titulo %}Contactos{% endblock %}
+
+{% block contenido %}
+<div style="padding: 20px;">
+    <div class="panel">
+        <h2>Contactos <span id="contactos-contador" style="background: var(--color-principal); color: white; padding: 2px 10px; border-radius: 12px; font-size: 13px;">{{ contactos|length }}</span></h2>
+
+        <h3 style="font-size:15px; margin-top:15px; color:#555;">Agregar contacto</h3>
+        <form id="form-contacto">
+            <div class="form-grupo">
+                <div class="form-campo">
+                    <label>Nombre:</label>
+                    <input type="text" name="nombre" placeholder="Nombre completo" required>
+                </div>
+                <div class="form-campo">
+                    <label>Telefono (con codigo pais):</label>
+                    <input type="text" name="telefono" placeholder="573001234567">
+                </div>
+                <div class="form-campo">
+                    <label>Email:</label>
+                    <input type="email" name="email" placeholder="correo@ejemplo.com">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-verde">+ Agregar</button>
+        </form>
+
+        <h3 style="font-size:15px; margin-top:25px; color:#555;">Listado</h3>
+        <div style="overflow-x:auto;">
+            <table style="width:100%; margin-top:10px;">
+                <thead>
+                    <tr style="background:var(--color-principal); color:white;">
+                        <th style="padding:12px; text-align:center;">#</th>
+                        <th style="padding:12px; text-align:left;">Nombre</th>
+                        <th style="padding:12px; text-align:left;">Telefono</th>
+                        <th style="padding:12px; text-align:left;">Email</th>
+                        <th style="padding:12px; text-align:center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-contactos"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function cargar() {
+    var r = await fetch('/api/contactos');
+    var data = await r.json();
+    var lista = (data.contactos || []).slice().sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    document.getElementById('contactos-contador').textContent = lista.length;
+    var tbody = document.getElementById('tbody-contactos');
+    tbody.innerHTML = '';
+    lista.forEach((c, i) => {
+        var tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #DDD';
+        tr.innerHTML = `
+            <td style="padding:12px; text-align:center; color:#666;">${i+1}</td>
+            <td style="padding:12px;"><input value="${c.nombre || ''}" data-id="${c.id}" data-campo="nombre" style="width:100%; padding:5px; border:1px solid #DDD;"></td>
+            <td style="padding:12px;"><input value="${c.telefono || ''}" data-id="${c.id}" data-campo="telefono" style="width:100%; padding:5px; border:1px solid #DDD;"></td>
+            <td style="padding:12px;"><input value="${c.email || ''}" data-id="${c.id}" data-campo="email" style="width:100%; padding:5px; border:1px solid #DDD;"></td>
+            <td style="padding:12px; text-align:center;">
+                <button class="btn btn-azul" style="font-size:12px; padding:5px 10px;" onclick="guardar(${c.id})">Guardar</button>
+                <button class="btn btn-rojo" style="font-size:12px; padding:5px 10px;" onclick="borrar(${c.id})">Borrar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function guardar(id) {
+    var payload = {};
+    document.querySelectorAll('input[data-id="' + id + '"]').forEach(i => {
+        payload[i.dataset.campo] = i.value.trim();
+    });
+    await fetch('/api/contactos/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    alert('Guardado');
+}
+
+async function borrar(id) {
+    if (!confirm('Borrar este contacto?')) return;
+    await fetch('/api/contactos/' + id, { method: 'DELETE' });
+    cargar();
+}
+
+document.getElementById('form-contacto').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var fd = new FormData(this);
+    var r = await fetch('/api/contactos', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            nombre: fd.get('nombre'),
+            telefono: fd.get('telefono'),
+            email: fd.get('email')
+        })
+    });
+    var data = await r.json();
+    if (data.contacto) {
+        this.reset();
+        cargar();
+    } else {
+        alert('Error: ' + (data.error || ''));
+    }
+});
+
+cargar();
+</script>
+{% endblock %}

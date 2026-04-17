@@ -132,16 +132,52 @@ def eliminar_pago(pago_id):
 
 
 def cargar_destinatarios():
-    resp = supabase.table("destinatarios").select("correo").execute()
-    return [d["correo"] for d in resp.data]
+    # Emails activos = contactos con email no vacio
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("contactos").select("email").not_.is_("email", "null").execute()
+    return [c["email"] for c in resp.data if c.get("email")]
 
 
-def agregar_destinatario_db(correo):
-    supabase.table("destinatarios").insert({"correo": correo}).execute()
+def listar_contactos():
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("contactos").select("*").order("nombre").execute()
+    return resp.data or []
 
 
-def quitar_destinatario_db(correo):
-    supabase.table("destinatarios").delete().eq("correo", correo).execute()
+def obtener_contacto(cid):
+    if not cid:
+        return None
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("contactos").select("*").eq("id", cid).execute()
+    return resp.data[0] if resp.data else None
+
+
+def crear_contacto(nombre, telefono=None, email=None):
+    client = supabase_admin if supabase_admin else supabase
+    datos = {"nombre": nombre}
+    if telefono:
+        datos["telefono"] = telefono
+    if email:
+        datos["email"] = email
+    resp = client.table("contactos").insert(datos).execute()
+    return resp.data[0] if resp.data else None
+
+
+def actualizar_contacto(cid, nombre=None, telefono=None, email=None):
+    client = supabase_admin if supabase_admin else supabase
+    datos = {}
+    if nombre is not None:
+        datos["nombre"] = nombre
+    if telefono is not None:
+        datos["telefono"] = telefono
+    if email is not None:
+        datos["email"] = email
+    client.table("contactos").update(datos).eq("id", cid).execute()
+
+
+def eliminar_contacto_db(cid):
+    client = supabase_admin if supabase_admin else supabase
+    client.table("contactos").delete().eq("id", cid).execute()
 
 
 def obtener_no_vistos(usuario):
@@ -216,6 +252,43 @@ def obtener_suscripciones_push():
     except Exception as e:
         print(f"Error obteniendo suscripciones push: {e}")
         return []
+
+
+def enviar_whatsapp(mensaje, to=None):
+    """Envia mensaje WhatsApp via Meta Cloud API. Si to=None usa WHATSAPP_NOTIFY_TO."""
+    import requests as _req
+
+    token = os.environ.get("WHATSAPP_TOKEN", "")
+    phone_id = os.environ.get("WHATSAPP_PHONE_ID", "")
+    if to is None:
+        to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+    if not (token and phone_id and to):
+        print("WhatsApp no configurado (falta TOKEN/PHONE_ID/to)")
+        return False
+
+    url = f"https://graph.facebook.com/v21.0/{phone_id}/messages"
+    try:
+        r = _req.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "messaging_product": "whatsapp",
+                "to": to,
+                "type": "text",
+                "text": {"body": mensaje},
+            },
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            print(f"WhatsApp error {r.status_code}: {r.text}")
+            return False
+        return True
+    except Exception as e:
+        print(f"WhatsApp excepcion: {e}")
+        return False
 
 
 def enviar_notificacion_push(titulo, cuerpo):
@@ -1101,7 +1174,11 @@ def foto_usuario(usuario):
 @app.route("/nuevo")
 @login_requerido
 def nuevo():
-    return render_template("paginas/nuevo.html", datos=None)
+    return render_template(
+        "paginas/nuevo.html",
+        datos=None,
+        contactos=listar_contactos(),
+    )
 
 
 @app.route("/chat", methods=["GET"])
@@ -1332,7 +1409,7 @@ def procesar_imagen():
             )
             return redirect(url_for("nuevo"))
 
-    return render_template("paginas/nuevo.html", datos=datos)
+    return render_template("paginas/nuevo.html", datos=datos, contactos=listar_contactos())
 
 
 @app.route("/agregar", methods=["POST"])
@@ -1354,6 +1431,7 @@ def agregar():
     imagen = request.form.get("imagen", "").strip()
     latitud_str = request.form.get("latitud", "").strip()
     longitud_str = request.form.get("longitud", "").strip()
+    contacto_id_str = request.form.get("contacto_id", "").strip()
 
     if not fecha or not valor_str:
         flash("Fecha y Valor son obligatorios.", "error")
@@ -1367,6 +1445,7 @@ def agregar():
 
     latitud = float(latitud_str) if latitud_str else None
     longitud = float(longitud_str) if longitud_str else None
+    contacto_id = int(contacto_id_str) if contacto_id_str.isdigit() else None
 
     movimiento = {
         "fecha": fecha,
@@ -1379,6 +1458,7 @@ def agregar():
         "imagen": imagen,
         "latitud": latitud,
         "longitud": longitud,
+        "contacto_id": contacto_id,
     }
 
     guardar_pago(movimiento)
@@ -1396,6 +1476,28 @@ def agregar():
     except Exception as e:
         print(f"Error enviando notificación push: {e}")
 
+    try:
+        contacto = obtener_contacto(contacto_id)
+        nombre_dest = (contacto or {}).get("nombre", "")
+        mensaje_wa = (
+            f"[Nuevo {etiqueta}] #{len(pagos)}\n"
+            f"Valor: ${valor:,.0f}\n"
+            f"Concepto: {concepto or '(sin)'}\n"
+            f"Medio: {medio or '(sin)'}\n"
+            f"Fecha: {fecha}"
+            + (f"\nDestinatario: {nombre_dest}" if nombre_dest else "")
+        )
+        destinos = set()
+        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        if admin_to:
+            destinos.add(admin_to)
+        if contacto and contacto.get("telefono"):
+            destinos.add(contacto["telefono"])
+        for numero in destinos:
+            enviar_whatsapp(mensaje_wa, to=numero)
+    except Exception as e:
+        print(f"Error enviando WhatsApp: {e}")
+
     flash(mensaje, "exito")
     return redirect(url_for("inicio"))
 
@@ -1403,7 +1505,41 @@ def agregar():
 @app.route("/eliminar/<int:pago_id>", methods=["POST"])
 @login_requerido
 def eliminar(pago_id):
+    detalle = ""
+    contacto_telefono = None
+    try:
+        client = supabase_admin if supabase_admin else supabase
+        prev = client.table("pagos").select("*").eq("id", pago_id).execute()
+        if prev.data:
+            p = prev.data[0]
+            detalle = (
+                f"Valor: ${p.get('valor', 0):,}\n"
+                f"Concepto: {p.get('concepto') or '(sin)'}\n"
+                f"Fecha: {p.get('fecha', '')}"
+            )
+            c = obtener_contacto(p.get("contacto_id"))
+            if c:
+                if c.get("telefono"):
+                    contacto_telefono = c["telefono"]
+                if c.get("nombre"):
+                    detalle += f"\nDestinatario: {c['nombre']}"
+    except Exception as e:
+        print(f"Error leyendo pago previo eliminar: {e}")
+
     eliminar_pago(pago_id)
+
+    try:
+        destinos = set()
+        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        if admin_to:
+            destinos.add(admin_to)
+        if contacto_telefono:
+            destinos.add(contacto_telefono)
+        for numero in destinos:
+            enviar_whatsapp(f"[Eliminado] pago #{pago_id}\n{detalle}", to=numero)
+    except Exception as e:
+        print(f"Error WhatsApp eliminar: {e}")
+
     flash("Movimiento eliminado.", "exito")
     return redirect(url_for("inicio"))
 
@@ -1458,7 +1594,7 @@ def agregar_destinatario():
         flash("Ese correo ya esta en la lista.", "info")
         return redirect(url_for("correo"))
 
-    agregar_destinatario_db(correo_nuevo)
+    crear_contacto(nombre=correo_nuevo, email=correo_nuevo)
     flash(f"Se agrego {correo_nuevo}.", "exito")
     return redirect(url_for("correo"))
 
@@ -1467,9 +1603,57 @@ def agregar_destinatario():
 @login_requerido
 def quitar_destinatario():
     correo_quitar = request.form.get("correo", "")
-    quitar_destinatario_db(correo_quitar)
+    client = supabase_admin if supabase_admin else supabase
+    client.table("contactos").delete().eq("email", correo_quitar).execute()
     flash(f"Se quito {correo_quitar}.", "exito")
     return redirect(url_for("correo"))
+
+
+@app.route("/contactos")
+@login_requerido
+def contactos():
+    return render_template("paginas/contactos.html", contactos=listar_contactos())
+
+
+@app.route("/api/contactos", methods=["GET"])
+@login_requerido
+def api_listar_contactos():
+    return jsonify(contactos=listar_contactos())
+
+
+@app.route("/api/contactos", methods=["POST"])
+@login_requerido
+def api_crear_contacto():
+    datos = request.get_json() or {}
+    nombre = (datos.get("nombre") or "").strip()
+    if not nombre:
+        return jsonify(error="Nombre requerido"), 400
+    c = crear_contacto(
+        nombre=nombre,
+        telefono=(datos.get("telefono") or "").strip() or None,
+        email=(datos.get("email") or "").strip().lower() or None,
+    )
+    return jsonify(contacto=c)
+
+
+@app.route("/api/contactos/<int:cid>", methods=["PUT"])
+@login_requerido
+def api_actualizar_contacto(cid):
+    datos = request.get_json() or {}
+    actualizar_contacto(
+        cid,
+        nombre=datos.get("nombre"),
+        telefono=datos.get("telefono"),
+        email=(datos.get("email") or "").lower() if datos.get("email") is not None else None,
+    )
+    return jsonify(ok=True)
+
+
+@app.route("/api/contactos/<int:cid>", methods=["DELETE"])
+@login_requerido
+def api_eliminar_contacto(cid):
+    eliminar_contacto_db(cid)
+    return jsonify(ok=True)
 
 
 @app.route("/enviar-correo", methods=["POST"])

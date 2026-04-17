@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
     <style>
         :root {
             --color-principal: #42A5F5;
@@ -61,7 +62,7 @@
         .tarjeta .numero { font-size: 28px; font-weight: bold; color: var(--color-principal); }
         .tarjeta .etiqueta { font-size: 13px; color: #777; margin-top: 5px; }
         .contenedor-tabla {
-            padding: 0 20px 30px; overflow: auto; max-height: 60vh;
+            padding: 0 20px 30px; overflow-x: auto;
         }
         table {
             width: 100%; border-collapse: collapse; background: white;
@@ -212,6 +213,7 @@
             <a href="/nuevo" class="btn btn-azul">Agregar Movimiento</a>
             <a href="/descargar-excel" class="btn btn-verde">Descargar Excel</a>
             <a href="/correo" class="btn btn-rojo">Enviar por Correo</a>
+            <a href="/contactos" class="btn" style="background: #E67E22;">&#128100; Contactos</a>
             <a href="/registrar-rostro" class="btn" style="background: #28A745;">&#128247; Mi Rostro</a>
             <a href="/chat" class="btn" style="background: #8E44AD;">&#128172; Chat</a>
             <a href="/graficas" class="btn" style="background: #17A2B8;">&#128200; Graficas</a>
@@ -233,6 +235,17 @@
     {% endif %}
 
     {% block scripts %}{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.flatpickr) {
+            flatpickr('input[type="date"], input.fecha', {
+                dateFormat: 'Y-m-d',
+                allowInput: true
+            });
+        }
+    });
+    </script>
     <script src="/static/push-notify.js"></script>
     <script>
     if ('serviceWorker' in navigator) {
