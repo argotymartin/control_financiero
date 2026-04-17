@@ -1044,6 +1044,69 @@ def nuevo():
     return render_template("paginas/nuevo.html", datos=None)
 
 
+@app.route("/chat", methods=["GET"])
+@login_requerido
+def chat():
+    return render_template("paginas/chat.html")
+
+
+@app.route("/api/chat", methods=["POST"])
+@login_requerido
+def api_chat():
+    import requests as _req
+
+    mensaje = (request.get_json() or {}).get("mensaje", "").strip()
+    if not mensaje:
+        return jsonify({"error": "Mensaje vacio"}), 400
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "GEMINI_API_KEY no configurada"}), 500
+
+    pagos = cargar_pagos()
+    total_ingresos = sum(p["valor"] for p in pagos if p.get("tipo") == "ingreso")
+    total_egresos = sum(p["valor"] for p in pagos if p.get("tipo") == "egreso")
+    saldo = total_ingresos - total_egresos
+    ultimos = pagos[-20:] if len(pagos) > 20 else pagos
+    resumen = "\n".join(
+        f"- {p.get('fecha')} | {p.get('tipo')} | ${p.get('valor'):,} | "
+        f"{p.get('concepto','')} | {p.get('medio','')}"
+        for p in ultimos
+    )
+
+    contexto = f"""Eres un asistente financiero del usuario {session.get('email', '')}.
+Responde en espanol, breve y directo. Si preguntan sobre sus pagos, usa estos datos.
+Si preguntan algo general (no de pagos), responde normal.
+
+TOTALES:
+- Ingresos: ${total_ingresos:,}
+- Egresos: ${total_egresos:,}
+- Saldo: ${saldo:,}
+- Total movimientos: {len(pagos)}
+
+ULTIMOS {len(ultimos)} MOVIMIENTOS:
+{resumen}
+
+Pregunta del usuario: {mensaje}
+"""
+
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+    try:
+        r = _req.post(
+            url,
+            headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
+            json={"contents": [{"parts": [{"text": contexto}]}]},
+            timeout=30,
+        )
+        data = r.json()
+        if r.status_code != 200:
+            return jsonify({"error": f"Gemini {r.status_code}: {data}"}), 500
+        texto = data["candidates"][0]["content"]["parts"][0]["text"]
+        return jsonify({"respuesta": texto})
+    except Exception as e:
+        return jsonify({"error": f"Error Gemini: {e}"}), 500
+
+
 @app.route("/deploy", methods=["POST"])
 def deploy():
     token = request.headers.get("X-Deploy-Token", "")
