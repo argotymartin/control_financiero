@@ -33,7 +33,7 @@
                 <input type="hidden" name="longitud" id="input-longitud" value="">
                 {% call grupo_campos() %}
                     {{ campo_select('tipo', 'Tipo', [('egreso', 'Egreso (pago/gasto)'), ('ingreso', 'Ingreso (nomina/consignacion)')]) }}
-                    {{ campo_texto('fecha', 'Fecha', valor=datos.fecha if datos else '', requerido=true) }}
+                    {{ campo_texto('fecha', 'Fecha', valor=datos.fecha if datos else '', requerido=true, tipo='date') }}
                     {{ campo_texto('valor', 'Valor $', valor=datos.valor if datos else '', requerido=true) }}
                 {% endcall %}
                 {% call grupo_campos() %}
