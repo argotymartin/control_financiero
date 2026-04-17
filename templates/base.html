@@ -190,7 +190,15 @@
         {% endwith %}
 
         <div class="barra-usuario">
+            {% if email_usuario %}
+            <img src="/foto-usuario/{{ email_usuario | urlencode }}" alt="avatar"
+                 onerror="this.style.display='none'; document.getElementById('avatar-fallback').style.display='inline-flex';"
+                 onclick="document.getElementById('modal-avatar').style.display='flex';"
+                 style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--color-claro); vertical-align:middle; cursor:pointer;">
+            <span id="avatar-fallback" class="avatar-iniciales" style="display:none;">{{ nombre_usuario[0] | upper if nombre_usuario else '?' }}</span>
+            {% else %}
             <span class="avatar-iniciales">{{ nombre_usuario[0] | upper if nombre_usuario else '?' }}</span>
+            {% endif %}
             <span style="color: var(--color-claro); font-size: 13px;">
                 {{ nombre_usuario }} ({{ email_usuario }})
             </span>
@@ -217,6 +225,12 @@
     {% block contenido %}{% endblock %}
 
     <div class="footer">Control Financiero (Supabase)</div>
+
+    {% if email_usuario %}
+    <div id="modal-avatar" onclick="this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:3000; justify-content:center; align-items:center; cursor:pointer;">
+        <img src="/foto-usuario/{{ email_usuario | urlencode }}" alt="avatar grande" style="max-width:90%; max-height:90%; border-radius:10px; box-shadow:0 0 30px rgba(0,0,0,0.6);">
+    </div>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
     <script src="/static/push-notify.js"></script>
