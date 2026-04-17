@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block titulo %}Graficas{% endblock %}
+
+{% block estilos_extra %}
+    .graficas-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        padding: 20px; max-width: 1400px; margin: 0 auto;
+    }
+    .panel-grafica {
+        background: white; border-radius: 10px; padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .panel-grafica h3 { margin-bottom: 15px; color: var(--color-oscuro); }
+    .panel-grafica canvas { max-height: 350px; }
+    @media (max-width: 800px) {
+        .graficas-grid { grid-template-columns: 1fr; }
+    }
+{% endblock %}
+
+{% block contenido %}
+<div class="graficas-grid">
+    <div class="panel-grafica">
+        <h3>Egresos por concepto</h3>
+        <canvas id="grafica-concepto"></canvas>
+    </div>
+    <div class="panel-grafica">
+        <h3>Egresos por medio de pago</h3>
+        <canvas id="grafica-medio"></canvas>
+    </div>
+    <div class="panel-grafica">
+        <h3>Ingresos vs Egresos por mes</h3>
+        <canvas id="grafica-mensual"></canvas>
+    </div>
+    <div class="panel-grafica">
+        <h3>Saldo acumulado</h3>
+        <canvas id="grafica-saldo"></canvas>
+    </div>
+    <div class="panel-grafica" style="grid-column: 1 / -1;">
+        <h3>Top 5 egresos mas grandes</h3>
+        <canvas id="grafica-top"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const DATOS = {
+    concepto: {{ por_concepto|tojson }},
+    medio: {{ por_medio|tojson }},
+    meses: {{ meses|tojson }},
+    mensual: {{ mensual|tojson }},
+    saldos: {{ saldos|tojson }},
+    top: {{ top_egresos|tojson }}
+};
+
+const colores = [
+    '#1565C0','#28A745','#DC3545','#FFC107','#8E44AD','#17A2B8',
+    '#E67E22','#2ECC71','#E74C3C','#34495E','#F39C12','#9B59B6'
+];
+
+function fmt(v) { return '$' + v.toLocaleString(); }
+
+// 1) Torta concepto
+new Chart(document.getElementById('grafica-concepto'), {
+    type: 'doughnut',
+    data: {
+        labels: Object.keys(DATOS.concepto),
+        datasets: [{ data: Object.values(DATOS.concepto), backgroundColor: colores }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'right' },
+        tooltip: { callbacks: { label: function(c) { return c.label + ': ' + fmt(c.parsed); } } } } }
+});
+
+// 2) Torta medio
+new Chart(document.getElementById('grafica-medio'), {
+    type: 'doughnut',
+    data: {
+        labels: Object.keys(DATOS.medio),
+        datasets: [{ data: Object.values(DATOS.medio), backgroundColor: colores }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'right' },
+        tooltip: { callbacks: { label: function(c) { return c.label + ': ' + fmt(c.parsed); } } } } }
+});
+
+// 3) Barras mensual
+new Chart(document.getElementById('grafica-mensual'), {
+    type: 'bar',
+    data: {
+        labels: DATOS.meses,
+        datasets: [
+            { label: 'Ingresos', data: DATOS.meses.map(m => DATOS.mensual[m].ingresos), backgroundColor: '#28A745' },
+            { label: 'Egresos', data: DATOS.meses.map(m => DATOS.mensual[m].egresos), backgroundColor: '#DC3545' }
+        ]
+    },
+    options: { responsive: true, scales: { y: { ticks: { callback: v => fmt(v) } } },
+        plugins: { tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(c.parsed.y) } } } }
+});
+
+// 4) Linea saldo acumulado
+new Chart(document.getElementById('grafica-saldo'), {
+    type: 'line',
+    data: {
+        labels: DATOS.saldos.map(s => s.fecha),
+        datasets: [{
+            label: 'Saldo',
+            data: DATOS.saldos.map(s => s.saldo),
+            borderColor: '#1565C0',
+            backgroundColor: 'rgba(21,101,192,0.1)',
+            fill: true,
+            tension: 0.2
+        }]
+    },
+    options: { responsive: true, scales: { y: { ticks: { callback: v => fmt(v) } } },
+        plugins: { tooltip: { callbacks: { label: c => 'Saldo: ' + fmt(c.parsed.y) } } } }
+});
+
+// 5) Top 5 egresos
+new Chart(document.getElementById('grafica-top'), {
+    type: 'bar',
+    data: {
+        labels: DATOS.top.map(t => t.etiqueta),
+        datasets: [{
+            label: 'Egreso',
+            data: DATOS.top.map(t => t.valor),
+            backgroundColor: '#DC3545'
+        }]
+    },
+    options: {
+        indexAxis: 'y', responsive: true,
+        scales: { x: { ticks: { callback: v => fmt(v) } } },
+        plugins: { tooltip: { callbacks: { label: c => fmt(c.parsed.x) } } }
+    }
+});
+</script>
+{% endblock %}

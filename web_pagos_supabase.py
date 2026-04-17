@@ -577,6 +577,11 @@ def api_registrar_rostro():
             'encoding': encoding
         }, on_conflict='email').execute()
 
+        try:
+            subir_foto_rostro(email, foto)
+        except Exception as e:
+            print(f"Error subiendo JPG rostro: {e}")
+
         return jsonify(ok=True, mensaje='Rostro registrado correctamente')
 
     except Exception as e:
@@ -594,6 +599,22 @@ def obtener_encoding_facial_base64(imagen_base64):
     finally:
         if os.path.exists(ruta_temp):
             os.remove(ruta_temp)
+
+
+def subir_foto_rostro(email, foto_base64):
+    """Sube el JPG de rostro al bucket 'rostros' con nombre {email}.jpg"""
+    if "," in foto_base64:
+        foto_base64 = foto_base64.split(",", 1)[1]
+    datos = base64.b64decode(foto_base64)
+    nombre = f"{email}.jpg"
+    client = supabase_admin if supabase_admin else supabase
+    try:
+        client.storage.from_("rostros").remove([nombre])
+    except Exception:
+        pass
+    client.storage.from_("rostros").upload(
+        nombre, datos, {"content-type": "image/jpeg", "upsert": "true"}
+    )
 
 
 @app.route('/usuarios')
@@ -616,24 +637,35 @@ def api_usuarios():
 
         client = supabase_admin if supabase_admin else supabase
 
-        # Obtener usuarios de Supabase Auth
-        resp = client.auth.admin.list_users()
+        # Traer TODOS los usuarios paginando
+        todos = []
+        pagina = 1
+        while True:
+            try:
+                resp = client.auth.admin.list_users(page=pagina, per_page=1000)
+            except TypeError:
+                resp = client.auth.admin.list_users()
+            lote = resp.users if hasattr(resp, 'users') else (resp or [])
+            if not lote:
+                break
+            todos.extend(lote)
+            if len(lote) < 1000:
+                break
+            pagina += 1
+
         usuarios_list = []
+        for user in todos:
+            try:
+                rostro_resp = client.table('rostros_usuarios').select('*').eq('email', user.email).execute()
+                tiene_rostro = len(rostro_resp.data) > 0
+            except Exception:
+                tiene_rostro = False
 
-        if hasattr(resp, 'users'):
-            for user in resp.users:
-                # Verificar si tiene rostro registrado
-                try:
-                    rostro_resp = client.table('rostros_usuarios').select('*').eq('email', user.email).execute()
-                    tiene_rostro = len(rostro_resp.data) > 0
-                except:
-                    tiene_rostro = False
-
-                usuarios_list.append({
-                    'email': user.email,
-                    'nombre': user.email.split('@')[0],
-                    'tiene_rostro': tiene_rostro
-                })
+            usuarios_list.append({
+                'email': user.email,
+                'nombre': user.email.split('@')[0],
+                'tiene_rostro': tiene_rostro
+            })
 
         return jsonify(ok=True, usuarios=usuarios_list)
     except Exception as e:
@@ -696,6 +728,11 @@ def api_registrar_rostro_admin():
             'email': email,
             'encoding': encoding
         }, on_conflict='email').execute()
+
+        try:
+            subir_foto_rostro(email, foto)
+        except Exception as e:
+            print(f"Error subiendo JPG rostro: {e}")
 
         return jsonify(ok=True, mensaje='Rostro registrado')
     except Exception as e:
@@ -1016,6 +1053,25 @@ def inicio():
     )
     ids_vistos = {v["pago_id"] for v in vistos_resp.data}
     no_vistos = sum(1 for m in movimientos if m.imagen and m.id not in ids_vistos)
+
+    pagos_json = [
+        {
+            "id": m.id,
+            "fecha": m.fecha,
+            "valor": m.valor,
+            "tipo": m.tipo,
+            "concepto": m.concepto,
+            "medio": m.medio,
+            "referencia": m.referencia,
+            "observacion": m.observacion,
+            "imagen": m.imagen,
+            "imagen_url": m.imagen_url,
+            "latitud": m.latitud,
+            "longitud": m.longitud,
+        }
+        for m in movimientos
+    ]
+
     return render_template(
         "paginas/inicio.html",
         movimientos=movimientos,
@@ -1025,6 +1081,10 @@ def inicio():
         es_admin=es_admin_flag,
         ids_vistos=ids_vistos,
         no_vistos=no_vistos,
+        pagos_json=pagos_json,
+        ids_vistos_list=list(ids_vistos),
+        supabase_url=SUPABASE_URL,
+        supabase_anon_key=SUPABASE_ANON_KEY,
     )
 
 
@@ -1048,6 +1108,74 @@ def nuevo():
 @login_requerido
 def chat():
     return render_template("paginas/chat.html")
+
+
+@app.route("/graficas")
+@login_requerido
+def graficas():
+    from collections import defaultdict
+
+    pagos = cargar_pagos()
+
+    # 1) Egresos por concepto
+    por_concepto = defaultdict(int)
+    for p in pagos:
+        if p.get("tipo") == "egreso":
+            clave = (p.get("concepto") or "Sin concepto").strip() or "Sin concepto"
+            por_concepto[clave] += p.get("valor", 0)
+
+    # 2) Egresos por medio
+    por_medio = defaultdict(int)
+    for p in pagos:
+        if p.get("tipo") == "egreso":
+            clave = (p.get("medio") or "Sin medio").strip() or "Sin medio"
+            por_medio[clave] += p.get("valor", 0)
+
+    # 3) Ingresos vs Egresos por mes
+    por_mes = defaultdict(lambda: {"ingresos": 0, "egresos": 0})
+    for p in pagos:
+        fecha = p.get("fecha", "")
+        mes = fecha[:7] if len(fecha) >= 7 else "sin-fecha"
+        if p.get("tipo") == "ingreso":
+            por_mes[mes]["ingresos"] += p.get("valor", 0)
+        else:
+            por_mes[mes]["egresos"] += p.get("valor", 0)
+    meses_ord = sorted(por_mes.keys())
+
+    # 4) Saldo acumulado
+    saldos = []
+    acum = 0
+    for p in sorted(pagos, key=lambda x: (x.get("fecha", ""), x.get("id", 0))):
+        valor = p.get("valor", 0)
+        if p.get("tipo") == "ingreso":
+            acum += valor
+        else:
+            acum -= valor
+        saldos.append({"fecha": p.get("fecha", ""), "saldo": acum})
+
+    # 5) Top 5 egresos mas grandes
+    egresos_sorted = sorted(
+        [p for p in pagos if p.get("tipo") == "egreso"],
+        key=lambda x: x.get("valor", 0),
+        reverse=True,
+    )[:5]
+    top_egresos = [
+        {
+            "etiqueta": f"{p.get('fecha','')} - {(p.get('concepto') or 'Sin concepto')[:30]}",
+            "valor": p.get("valor", 0),
+        }
+        for p in egresos_sorted
+    ]
+
+    return render_template(
+        "paginas/graficas.html",
+        por_concepto=dict(por_concepto),
+        por_medio=dict(por_medio),
+        meses=meses_ord,
+        mensual={m: dict(por_mes[m]) for m in meses_ord},
+        saldos=saldos,
+        top_egresos=top_egresos,
+    )
 
 
 @app.route("/api/chat", methods=["POST"])

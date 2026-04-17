@@ -26,11 +26,14 @@
                 <button type="submit" class="btn btn-verde">+ Crear Usuario</button>
             </form>
 
-            <h3 style="font-size: 15px; margin-top: 25px; color: #555;">Usuarios registrados</h3>
+            <h3 style="font-size: 15px; margin-top: 25px; color: #555;">
+                Usuarios registrados <span id="usuarios-contador" style="background: var(--color-principal); color: white; padding: 2px 10px; border-radius: 12px; font-size: 13px; margin-left: 5px;">0</span>
+            </h3>
             <div style="overflow-x: auto;">
                 <table style="width: 100%; margin-top: 15px;">
                     <thead>
                         <tr style="background: var(--color-principal); color: white;">
+                            <th style="padding: 12px; text-align: center;">#</th>
                             <th style="padding: 12px; text-align: left;">Email</th>
                             <th style="padding: 12px; text-align: left;">Nombre</th>
                             <th style="padding: 12px; text-align: center;">Rostro</th>
@@ -39,12 +42,16 @@
                     </thead>
                     <tbody id="tabla-usuarios">
                         <tr>
-                            <td colspan="4" style="padding: 20px; text-align: center; color: #999;">Cargando usuarios...</td>
+                            <td colspan="5" style="padding: 20px; text-align: center; color: #999;">Cargando usuarios...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
+    </div>
+
+    <div id="modal-foto-rostro" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;" onclick="cerrarModalFoto()">
+        <img id="modal-foto-rostro-img" src="" style="max-width:90%; max-height:90%; border-radius:10px; box-shadow: 0 0 30px rgba(0,0,0,0.5);">
     </div>
 
     <!-- Modal para registrar rostro -->
@@ -76,17 +83,25 @@
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
+                const lista = data.usuarios.slice().sort((a, b) =>
+                    (a.email || '').localeCompare(b.email || ''));
+                document.getElementById('usuarios-contador').textContent = lista.length;
                 const tabla = document.getElementById('tabla-usuarios');
                 tabla.innerHTML = '';
-                data.usuarios.forEach(usuario => {
+                lista.forEach((usuario, idx) => {
                     const fila = document.createElement('tr');
                     fila.style.borderBottom = '1px solid #DDD';
+                    const emailEnc = encodeURIComponent(usuario.email);
+                    const celdaRostro = usuario.tiene_rostro
+                        ? `<img src="/foto-usuario/${emailEnc}" alt="rostro"
+                             onclick="verFotoRostro('/foto-usuario/${emailEnc}')"
+                             style="width:40px; height:40px; border-radius:50%; object-fit:cover; cursor:pointer; border:2px solid #28A745;">`
+                        : `<span style="display:inline-block; width:40px; height:40px; border-radius:50%; background:#E0E0E0; color:#999; line-height:40px; font-size:18px;">?</span>`;
                     fila.innerHTML = `
+                        <td style="padding: 12px; text-align: center; color:#666;">${idx + 1}</td>
                         <td style="padding: 12px;">${usuario.email}</td>
                         <td style="padding: 12px;">${usuario.nombre || '-'}</td>
-                        <td style="padding: 12px; text-align: center;">
-                            ${usuario.tiene_rostro ? '<span style="color: #28A745;">✓</span>' : '<span style="color: #999;">✗</span>'}
-                        </td>
+                        <td style="padding: 12px; text-align: center;">${celdaRostro}</td>
                         <td style="padding: 12px; text-align: center;">
                             <button type="button" class="btn btn-azul" style="font-size: 12px; padding: 6px 12px;"
                                     onclick="abrirModalRostro('${usuario.email}')">
@@ -98,6 +113,14 @@
                 });
             }
         });
+    }
+
+    function verFotoRostro(url) {
+        document.getElementById('modal-foto-rostro-img').src = url;
+        document.getElementById('modal-foto-rostro').style.display = 'flex';
+    }
+    function cerrarModalFoto() {
+        document.getElementById('modal-foto-rostro').style.display = 'none';
     }
 
     function abrirModalRostro(email) {

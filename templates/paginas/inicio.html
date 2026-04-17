@@ -17,24 +17,29 @@
         background: #DC3545; border-radius: 50%; border: 2px solid white;
         z-index: 5;
     }
+    .fila-flash { animation: flashFondo 1.2s ease; }
+    @keyframes flashFondo {
+        0% { background: #FFF3CD; }
+        100% { background: transparent; }
+    }
 {% endblock %}
 
 {% block contenido %}
     <div class="resumen">
         <div class="tarjeta">
-            <div class="numero" style="color: #28A745;">${{ '{:,.0f}'.format(total_ingresos) }}</div>
+            <div class="numero" style="color: #28A745;" id="card-ingresos">$0</div>
             <div class="etiqueta">Total Ingresos</div>
         </div>
         <div class="tarjeta">
-            <div class="numero" style="color: #DC3545;">${{ '{:,.0f}'.format(total_egresos) }}</div>
+            <div class="numero" style="color: #DC3545;" id="card-egresos">$0</div>
             <div class="etiqueta">Total Egresos</div>
         </div>
         <div class="tarjeta">
-            <div class="numero" style="color: {{ '#28A745' if saldo >= 0 else '#DC3545' }};">${{ '{:,.0f}'.format(saldo) }}</div>
+            <div class="numero" id="card-saldo">$0</div>
             <div class="etiqueta">Saldo Actual</div>
         </div>
         <div class="tarjeta">
-            <div class="numero">{{ movimientos|length }}</div>
+            <div class="numero" id="card-count">0</div>
             <div class="etiqueta">Movimientos</div>
         </div>
         <div class="tarjeta">
@@ -48,59 +53,14 @@
     </div>
 
     {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','GPS','Accion']) %}
-        <tbody>
-            {% set saldo_acum = {'val': 0} %}
-            {% for m in movimientos %}
-            {% set _ = saldo_acum.update({'val': saldo_acum.val + m.credito - m.debito}) %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>
-                    {% if m.imagen %}
-                    <div class="thumb-container" onclick="verYMarcar('{{ m.imagen_url }}', {{ m.id }}, this)" id="thumb-{{ m.id }}">
-                        {% if m.id not in ids_vistos %}
-                        <span class="punto-nuevo" id="punto-{{ m.id }}"></span>
-                        {% endif %}
-                        <img src="{{ m.imagen_url }}" alt="Comprobante {{ loop.index }}">
-                    </div>
-                    {% else %}
-                    <div class="sin-imagen">--</div>
-                    {% endif %}
-                </td>
-                <td>{{ m.fecha }}</td>
-                <td>{{ m.concepto }}</td>
-                <td class="valor" style="color: #DC3545;">{{ '${:,.0f}'.format(m.debito) if m.debito else '' }}</td>
-                <td class="valor" style="color: #28A745;">{{ '${:,.0f}'.format(m.credito) if m.credito else '' }}</td>
-                <td class="valor" style="color: {{ '#28A745' if saldo_acum.val >= 0 else '#DC3545' }};">${{ '{:,.0f}'.format(saldo_acum.val) }}</td>
-                <td>{{ m.medio }}</td>
-                <td>{{ m.referencia }}</td>
-                <td style="text-align:center;">
-                    {% if m.latitud and m.longitud %}
-                    <span style="cursor:pointer; font-size:20px;" title="Ver ubicacion"
-                          onclick="verMapa({{ m.latitud }}, {{ m.longitud }}, '{{ m.concepto|e }}')">&#127757;</span>
-                    {% else %}
-                    <span style="opacity:0.3; font-size:20px;" title="Sin GPS">&#127757;</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if es_admin %}
-                    <form action="/eliminar/{{ m.id }}" method="post"
-                          onsubmit="return confirm('Eliminar movimiento #{{ loop.index }}?')">
-                        <button type="submit" class="btn-eliminar-fila">Eliminar</button>
-                    </form>
-                    {% else %}
-                    <button class="btn-eliminar-fila" disabled style="opacity:0.4; cursor:not-allowed;">Eliminar</button>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
+        <tbody id="tbody-movimientos"></tbody>
         <tfoot>
             <tr class="fila-total">
                 <td colspan="4">TOTAL</td>
-                <td class="valor">${{ '{:,.0f}'.format(total_egresos) }}</td>
-                <td class="valor">${{ '{:,.0f}'.format(total_ingresos) }}</td>
-                <td class="valor">${{ '{:,.0f}'.format(saldo) }}</td>
-                <td colspan="2">{{ movimientos|length }} movimientos</td>
+                <td class="valor" id="foot-egresos">$0</td>
+                <td class="valor" id="foot-ingresos">$0</td>
+                <td class="valor" id="foot-saldo">$0</td>
+                <td colspan="2" id="foot-count">0 movimientos</td>
                 <td></td>
                 <td></td>
             </tr>
@@ -118,14 +78,31 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+    // ---- Estado global en memoria ----
+    var pagosArr = {{ pagos_json|tojson }};
+    var idsVistos = new Set({{ ids_vistos_list|tojson }});
+    var esAdmin = {{ 'true' if es_admin else 'false' }};
+    var SB_URL = "{{ supabase_url }}";
+    var SB_KEY = "{{ supabase_anon_key }}";
+
+    function fmtPeso(v) {
+        return '$' + Math.round(v).toLocaleString('es-CO');
+    }
+
+    function buildImgUrl(imagen) {
+        if (!imagen) return '';
+        return SB_URL + '/storage/v1/object/public/comprobantes/' + encodeURIComponent(imagen);
+    }
+
+    // ---- Mapa Leaflet ----
     var _leafletMap = null;
     function verMapa(lat, lng, titulo) {
         document.getElementById('mapa-titulo').textContent = titulo || 'Ubicacion';
-        var modal = document.getElementById('modal-mapa');
-        modal.style.display = 'flex';
+        document.getElementById('modal-mapa').style.display = 'flex';
         setTimeout(function() {
-            if (_leafletMap) { _leafletMap.remove(); }
+            if (_leafletMap) _leafletMap.remove();
             _leafletMap = L.map('leaflet-map').setView([lat, lng], 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap'
@@ -140,49 +117,140 @@
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') cerrarMapa();
     });
+
+    // ---- Render fila individual ----
+    function renderFila(p, idx, saldoAcum) {
+        var tr = document.createElement('tr');
+        tr.dataset.id = p.id;
+        tr.id = 'fila-' + p.id;
+
+        var debito = p.tipo === 'egreso' ? p.valor : 0;
+        var credito = p.tipo === 'ingreso' ? p.valor : 0;
+        var imgUrl = p.imagen_url || buildImgUrl(p.imagen);
+
+        var tdImg;
+        if (p.imagen) {
+            var puntoHtml = !idsVistos.has(p.id)
+                ? '<span class="punto-nuevo" id="punto-' + p.id + '"></span>' : '';
+            tdImg = '<div class="thumb-container" onclick="verYMarcar(\'' + imgUrl + '\',' + p.id + ')" id="thumb-' + p.id + '">'
+                + puntoHtml + '<img src="' + imgUrl + '" alt="Comprobante"></div>';
+        } else {
+            tdImg = '<div class="sin-imagen">--</div>';
+        }
+
+        var tdGps = (p.latitud && p.longitud)
+            ? '<span style="cursor:pointer; font-size:20px;" title="Ver ubicacion" onclick="verMapa(' + p.latitud + ',' + p.longitud + ',\'' + (p.concepto||'').replace(/'/g,"\\'") + '\')">&#127757;</span>'
+            : '<span style="opacity:0.3; font-size:20px;" title="Sin GPS">&#127757;</span>';
+
+        var tdAccion = esAdmin
+            ? '<form action="/eliminar/' + p.id + '" method="post" onsubmit="return confirm(\'Eliminar movimiento #' + (idx+1) + '?\')"><button type="submit" class="btn-eliminar-fila">Eliminar</button></form>'
+            : '<button class="btn-eliminar-fila" disabled style="opacity:0.4; cursor:not-allowed;">Eliminar</button>';
+
+        tr.innerHTML =
+            '<td>' + (idx + 1) + '</td>' +
+            '<td>' + tdImg + '</td>' +
+            '<td>' + (p.fecha || '') + '</td>' +
+            '<td>' + (p.concepto || '') + '</td>' +
+            '<td class="valor" style="color:#DC3545;">' + (debito ? fmtPeso(debito) : '') + '</td>' +
+            '<td class="valor" style="color:#28A745;">' + (credito ? fmtPeso(credito) : '') + '</td>' +
+            '<td class="valor" style="color:' + (saldoAcum >= 0 ? '#28A745' : '#DC3545') + ';">' + fmtPeso(saldoAcum) + '</td>' +
+            '<td>' + (p.medio || '') + '</td>' +
+            '<td>' + (p.referencia || '') + '</td>' +
+            '<td style="text-align:center;">' + tdGps + '</td>' +
+            '<td>' + tdAccion + '</td>';
+        return tr;
+    }
+
+    function renderTbody() {
+        pagosArr.sort(function(a, b) { return (a.id || 0) - (b.id || 0); });
+        var tbody = document.getElementById('tbody-movimientos');
+        tbody.innerHTML = '';
+        var acum = 0;
+        var totIng = 0, totEgr = 0;
+        pagosArr.forEach(function(p, i) {
+            acum += (p.tipo === 'ingreso' ? p.valor : -p.valor);
+            if (p.tipo === 'ingreso') totIng += p.valor;
+            else totEgr += p.valor;
+            tbody.appendChild(renderFila(p, i, acum));
+        });
+        document.getElementById('card-ingresos').textContent = fmtPeso(totIng);
+        document.getElementById('card-egresos').textContent = fmtPeso(totEgr);
+        var saldo = totIng - totEgr;
+        var saldoEl = document.getElementById('card-saldo');
+        saldoEl.textContent = fmtPeso(saldo);
+        saldoEl.style.color = saldo >= 0 ? '#28A745' : '#DC3545';
+        document.getElementById('card-count').textContent = pagosArr.length;
+        document.getElementById('foot-ingresos').textContent = fmtPeso(totIng);
+        document.getElementById('foot-egresos').textContent = fmtPeso(totEgr);
+        document.getElementById('foot-saldo').textContent = fmtPeso(saldo);
+        document.getElementById('foot-count').textContent = pagosArr.length + ' movimientos';
+    }
+
+    function flashFila(id) {
+        var tr = document.getElementById('fila-' + id);
+        if (tr) {
+            tr.classList.remove('fila-flash');
+            void tr.offsetWidth;
+            tr.classList.add('fila-flash');
+        }
+    }
+
+    // ---- Realtime Supabase ----
+    var sbClient = supabase.createClient(SB_URL, SB_KEY);
+    sbClient.channel('pagos-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos' }, function(payload) {
+            var ev = payload.eventType;
+            if (ev === 'INSERT') {
+                pagosArr.push(payload.new);
+                renderTbody();
+                flashFila(payload.new.id);
+            } else if (ev === 'UPDATE') {
+                var idx = pagosArr.findIndex(function(p) { return p.id === payload.new.id; });
+                if (idx >= 0) {
+                    pagosArr[idx] = Object.assign({}, pagosArr[idx], payload.new);
+                    renderTbody();
+                    flashFila(payload.new.id);
+                }
+            } else if (ev === 'DELETE') {
+                pagosArr = pagosArr.filter(function(p) { return p.id !== payload.old.id; });
+                renderTbody();
+            }
+        })
+        .subscribe();
+
+    // ---- Marcar visto ----
+    function verYMarcar(url, pagoId) {
+        verImagen(url);
+        var punto = document.getElementById('punto-' + pagoId);
+        if (punto) {
+            punto.remove();
+            idsVistos.add(pagoId);
+            fetch('/marcar-visto/' + pagoId, { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    document.getElementById('conteo-no-vistos').textContent = data.no_vistos;
+                    var globo = document.getElementById('globo-badge');
+                    if (data.no_vistos > 0) {
+                        if (globo) globo.textContent = data.no_vistos;
+                    } else if (globo) { globo.remove(); }
+                    if ('setAppBadge' in navigator) {
+                        if (data.no_vistos > 0) navigator.setAppBadge(data.no_vistos);
+                        else navigator.clearAppBadge();
+                    }
+                }
+            });
+        }
+    }
+
+    // ---- Init ----
+    renderTbody();
+    if ('setAppBadge' in navigator) {
+        var nv = {{ no_vistos }};
+        if (nv > 0) navigator.setAppBadge(nv); else navigator.clearAppBadge();
+    }
     </script>
 {% endblock %}
 
 {% block scripts %}
-<script>
-function verYMarcar(url, pagoId, elem) {
-    verImagen(url);
-    var punto = document.getElementById('punto-' + pagoId);
-    if (punto) {
-        punto.remove();
-        fetch('/marcar-visto/' + pagoId, {method: 'POST'})
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.ok) {
-                document.getElementById('conteo-no-vistos').textContent = data.no_vistos;
-                var globo = document.getElementById('globo-badge');
-                if (data.no_vistos > 0) {
-                    if (globo) {
-                        globo.textContent = data.no_vistos;
-                    }
-                } else {
-                    if (globo) globo.remove();
-                }
-                if ('setAppBadge' in navigator) {
-                    if (data.no_vistos > 0) {
-                        navigator.setAppBadge(data.no_vistos);
-                    } else {
-                        navigator.clearAppBadge();
-                    }
-                }
-            }
-        });
-    }
-}
-
-// Badge en el icono de la app al cargar
-if ('setAppBadge' in navigator) {
-    var noVistos = {{ no_vistos }};
-    if (noVistos > 0) {
-        navigator.setAppBadge(noVistos);
-    } else {
-        navigator.clearAppBadge();
-    }
-}
-</script>
 {% endblock %}
