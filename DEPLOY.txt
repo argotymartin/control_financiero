@@ -1,0 +1,172 @@
+=====================================================
+  DEPLOY - Control Financiero
+  Como subir cambios de LOCAL a PRODUCCION
+=====================================================
+
+
+==============================
+  FLUJO NORMAL (uso diario)
+==============================
+
+1. Hacer cambios en archivos local
+   Directorio: /home/margoty/Documentos/control_financiero
+
+2. Probar local:
+   ./iniciar_supabase.sh
+   Abrir: http://localhost:5052
+
+3. Si todo OK, subir a produccion:
+   ./deploy.sh "mensaje del cambio"
+
+   Esto hace automatico:
+   - git add -A
+   - git commit -m "mensaje"
+   - git push origin main
+   - Llama endpoint /deploy en PythonAnywhere
+   - Servidor hace git pull + reload
+
+4. Verificar produccion:
+   https://margoty.pythonanywhere.com
+
+FIN. Un solo comando.
+
+
+==============================
+  CUANDO ENTRAR A PYTHONANYWHERE?
+==============================
+
+Para cambios de codigo normales: NUNCA.
+Solo entrar a PA si:
+
+  - Error grave: ver logs
+    tail -f /var/log/margoty.pythonanywhere.com.error.log
+
+  - Instalar modulo Python nuevo:
+    pip install --user <modulo>
+    Luego Web tab -> Reload
+
+  - Cambiar env vars (agregar nuevo secret, cambiar keys, etc):
+    Editar /var/www/margoty_pythonanywhere_com_wsgi.py
+    Luego Web tab -> Reload
+
+  - Token PA expirado o cambios en cuenta.
+
+  - Reiniciar la web app manualmente:
+    Web tab -> boton "Reload" (verde)
+    O desde consola: touch /var/www/margoty_pythonanywhere_com_wsgi.py
+
+  - Reiniciar el SERVIDOR completo (raro, solo si web app
+    no responde o hay fuga de memoria):
+    Dashboard -> Databases/Projects -> "Restart project"
+    (aplica solo a Supabase, no a PA)
+    Para PA: Web tab -> Reload es suficiente.
+
+Para todo lo demas (cambios de codigo, templates, CSS, etc):
+  Solo ./deploy.sh local. PA manos libres.
+
+
+==============================
+  ARCHIVOS IMPORTANTES
+==============================
+
+.env                       -> Keys reales (Supabase, correo, DEPLOY_TOKEN)
+                              NO SE SUBE A GIT (esta en .gitignore)
+
+.gitignore                 -> Lista archivos ignorados por git
+
+deploy.sh                  -> Script de deploy (1 comando)
+
+iniciar_supabase.sh        -> Arrancar local (lee .env)
+
+web_pagos_supabase.py      -> App Flask principal
+
+wsgi_pythonanywhere.py     -> WSGI en el repo (NO es el que usa PA)
+
+El WSGI real que usa PythonAnywhere esta en:
+    /var/www/margoty_pythonanywhere_com_wsgi.py
+
+
+==============================
+  DATOS DE PRODUCCION
+==============================
+
+URL:        https://margoty.pythonanywhere.com
+Usuario PA: margoty
+Repo PA:    /home/margoty/app_supabase
+Repo git:   https://github.com/argotymartin/control_financiero
+
+Supabase:
+  Proyecto:   control-financiero (zsbbyvqcxqwhmydztbax)
+  Dashboard:  https://supabase.com/dashboard
+  Tipo keys:  nuevo formato (sb_publishable_, sb_secret_)
+
+Admin users (pueden borrar): ver ADMIN_USUARIOS en .env
+
+
+==============================
+  CONFIGURACION INICIAL (ya hecho, solo referencia)
+==============================
+
+LOCAL:
+  - .env con keys reales
+  - .gitignore con .env
+  - iniciar_supabase.sh hace 'source .env'
+  - deploy.sh ejecutable
+
+PYTHONANYWHERE (/var/www/margoty_pythonanywhere_com_wsgi.py):
+  - Env vars: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY,
+              ADMIN_USUARIOS, CORREO_REMITENTE, CORREO_CLAVE_APP,
+              DEPLOY_TOKEN
+
+CODIGO (web_pagos_supabase.py):
+  - Endpoint /deploy (POST) protegido con X-Deploy-Token header
+  - Hace git pull + touch del wsgi para reload
+
+
+==============================
+  TROUBLESHOOTING
+==============================
+
+Error "Token invalido" al hacer deploy:
+  -> DEPLOY_TOKEN en .env local no coincide con el de PA
+  -> Verificar /var/www/margoty_pythonanywhere_com_wsgi.py
+  -> Web tab -> Reload despues de cambios
+
+Git pide user/password cada push:
+  git config --global credential.helper store
+  (siguiente push guarda, despues no pide mas)
+
+Error "Invalid API key" Supabase:
+  -> Keys demo en .env (issuer dice "supabase-demo")
+  -> Ir a supabase.com/dashboard -> proyecto -> Settings -> API Keys
+  -> Copiar publishable + secret nuevas al .env
+
+App no carga despues de deploy:
+  -> Revisar error log en Web tab (Error log)
+  -> Verificar sintaxis del wsgi: cat /var/www/margoty_pythonanywhere_com_wsgi.py
+  -> Probable indentacion rota. Reescribir desde editor Files de PA
+
+Python no encuentra modulo:
+  -> Conectarse consola bash PA:
+     pip install --user <modulo>
+  -> Reload web app
+
+
+==============================
+  COMANDOS UTILES
+==============================
+
+Ver log de errores PA:
+  tail -f /var/log/margoty.pythonanywhere.com.error.log
+
+Ver log del servidor PA:
+  tail -f /var/log/margoty.pythonanywhere.com.server.log
+
+Reload manual desde consola PA:
+  touch /var/www/margoty_pythonanywhere_com_wsgi.py
+
+Deploy saltando commit (solo push + pull remoto):
+  git push origin main
+  curl -X POST -H "X-Deploy-Token: <token>" https://margoty.pythonanywhere.com/deploy
+
+=====================================================

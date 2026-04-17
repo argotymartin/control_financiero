@@ -977,6 +977,8 @@ class Movimiento:
         self.imagen_url = (
             obtener_url_publica("comprobantes", self.imagen) if self.imagen else ""
         )
+        self.latitud = datos.get("latitud")
+        self.longitud = datos.get("longitud")
 
     @property
     def debito(self):
@@ -1159,6 +1161,8 @@ def agregar():
     referencia = request.form.get("referencia", "").strip()
     observacion = request.form.get("observacion", "").strip()
     imagen = request.form.get("imagen", "").strip()
+    latitud_str = request.form.get("latitud", "").strip()
+    longitud_str = request.form.get("longitud", "").strip()
 
     if not fecha or not valor_str:
         flash("Fecha y Valor son obligatorios.", "error")
@@ -1170,6 +1174,9 @@ def agregar():
         flash("El valor debe ser un numero.", "error")
         return redirect(url_for("nuevo"))
 
+    latitud = float(latitud_str) if latitud_str else None
+    longitud = float(longitud_str) if longitud_str else None
+
     movimiento = {
         "fecha": fecha,
         "valor": valor,
@@ -1179,6 +1186,8 @@ def agregar():
         "referencia": referencia,
         "observacion": observacion,
         "imagen": imagen,
+        "latitud": latitud,
+        "longitud": longitud,
     }
 
     guardar_pago(movimiento)

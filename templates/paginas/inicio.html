@@ -47,7 +47,7 @@
         </div>
     </div>
 
-    {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','Accion']) %}
+    {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','GPS','Accion']) %}
         <tbody>
             {% set saldo_acum = {'val': 0} %}
             {% for m in movimientos %}
@@ -73,6 +73,14 @@
                 <td class="valor" style="color: {{ '#28A745' if saldo_acum.val >= 0 else '#DC3545' }};">${{ '{:,.0f}'.format(saldo_acum.val) }}</td>
                 <td>{{ m.medio }}</td>
                 <td>{{ m.referencia }}</td>
+                <td style="text-align:center;">
+                    {% if m.latitud and m.longitud %}
+                    <span style="cursor:pointer; font-size:20px;" title="Ver ubicacion"
+                          onclick="verMapa({{ m.latitud }}, {{ m.longitud }}, '{{ m.concepto|e }}')">&#128205;</span>
+                    {% else %}
+                    <span style="opacity:0.3; font-size:20px;" title="Sin GPS">&#128205;</span>
+                    {% endif %}
+                </td>
                 <td>
                     {% if es_admin %}
                     <form action="/eliminar/{{ m.id }}" method="post"
@@ -94,11 +102,45 @@
                 <td class="valor">${{ '{:,.0f}'.format(saldo) }}</td>
                 <td colspan="2">{{ movimientos|length }} movimientos</td>
                 <td></td>
+                <td></td>
             </tr>
         </tfoot>
     {% endcall %}
 
     {{ modal_imagen() }}
+
+    <div id="modal-mapa" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:10px; padding:15px; width:90%; max-width:600px; position:relative;">
+            <span style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; font-weight:bold;" onclick="cerrarMapa()">&times;</span>
+            <h3 id="mapa-titulo" style="margin-bottom:10px;">Ubicacion</h3>
+            <div id="leaflet-map" style="height:400px; border-radius:8px;"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+    var _leafletMap = null;
+    function verMapa(lat, lng, titulo) {
+        document.getElementById('mapa-titulo').textContent = titulo || 'Ubicacion';
+        var modal = document.getElementById('modal-mapa');
+        modal.style.display = 'flex';
+        setTimeout(function() {
+            if (_leafletMap) { _leafletMap.remove(); }
+            _leafletMap = L.map('leaflet-map').setView([lat, lng], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(_leafletMap);
+            L.marker([lat, lng]).addTo(_leafletMap);
+        }, 50);
+    }
+    function cerrarMapa() {
+        document.getElementById('modal-mapa').style.display = 'none';
+        if (_leafletMap) { _leafletMap.remove(); _leafletMap = null; }
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') cerrarMapa();
+    });
+    </script>
 {% endblock %}
 
 {% block scripts %}

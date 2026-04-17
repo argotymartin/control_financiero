@@ -24,8 +24,13 @@
 
         <div class="panel" style="margin-top: 20px;">
             <h2>{% if datos %}Confirmar datos{% else %}Ingresar movimiento{% endif %}</h2>
-            <form action="/agregar" method="post">
+            <div id="gps-status" style="padding: 8px; border-radius: 5px; margin-bottom: 10px; font-size: 13px; background: #FFF3CD; color: #856404;">
+                Solicitando ubicacion GPS...
+            </div>
+            <form action="/agregar" method="post" id="form-agregar">
                 <input type="hidden" name="imagen" value="{{ datos.imagen if datos else '' }}">
+                <input type="hidden" name="latitud" id="input-latitud" value="">
+                <input type="hidden" name="longitud" id="input-longitud" value="">
                 {% call grupo_campos() %}
                     {{ campo_select('tipo', 'Tipo', [('egreso', 'Egreso (pago/gasto)'), ('ingreso', 'Ingreso (nomina/consignacion)')]) }}
                     {{ campo_texto('fecha', 'Fecha', valor=datos.fecha if datos else '', requerido=true) }}
@@ -47,4 +52,28 @@
             </form>
         </div>
     </div>
+
+    <script>
+    (function() {
+        var status = document.getElementById('gps-status');
+        if (!navigator.geolocation) {
+            status.textContent = 'GPS no soportado por el navegador. Se guardara sin ubicacion.';
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                document.getElementById('input-latitud').value = pos.coords.latitude;
+                document.getElementById('input-longitud').value = pos.coords.longitude;
+                status.style.background = '#D4EDDA';
+                status.style.color = '#155724';
+                status.textContent = 'Ubicacion capturada: ' +
+                    pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5);
+            },
+            function(err) {
+                status.textContent = 'Sin ubicacion (' + err.message + '). Se guardara sin GPS.';
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    })();
+    </script>
 {% endblock %}
