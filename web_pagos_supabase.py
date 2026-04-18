@@ -119,6 +119,20 @@ def cargar_pagos():
     return resp.data
 
 
+def cargar_pagos_visibles():
+    """Admin ve todo. Destinatario ve solo pagos cuyo contacto.email = su email."""
+    pagos = cargar_pagos()
+    if es_admin():
+        return pagos
+    email_actual = session.get("email", "")
+    if not email_actual:
+        return []
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("contactos").select("id").eq("email", email_actual).execute()
+    mis_ids = {c["id"] for c in (resp.data or [])}
+    return [p for p in pagos if p.get("contacto_id") in mis_ids]
+
+
 def guardar_pago(pago):
     if supabase_admin:
         supabase_admin.table("pagos").insert(pago).execute()
@@ -1111,7 +1125,7 @@ def get_fechas(pagos_raw):
 @app.route("/")
 @login_requerido
 def inicio():
-    datos_raw = cargar_pagos()
+    datos_raw = cargar_pagos_visibles()
     movimientos = [Movimiento(p) for p in datos_raw]
     total_ingresos = sum(m.credito for m in movimientos)
     total_egresos = sum(m.debito for m in movimientos)
@@ -1192,7 +1206,7 @@ def chat():
 def graficas():
     from collections import defaultdict
 
-    pagos = cargar_pagos()
+    pagos = cargar_pagos_visibles()
 
     # 1) Egresos por concepto
     por_concepto = defaultdict(int)
@@ -1328,7 +1342,7 @@ GEMINI_TOOLS_DECL = [{
 
 
 def _tool_buscar_pagos(concepto=None, tipo=None, fecha_desde=None, fecha_hasta=None, limite=20):
-    r = cargar_pagos()
+    r = cargar_pagos_visibles()
     if concepto:
         q = str(concepto).lower()
         r = [p for p in r if q in (p.get("concepto") or "").lower()]
@@ -1347,7 +1361,7 @@ def _tool_buscar_pagos(concepto=None, tipo=None, fecha_desde=None, fecha_hasta=N
 
 
 def _tool_obtener_totales(fecha_desde=None, fecha_hasta=None):
-    r = cargar_pagos()
+    r = cargar_pagos_visibles()
     if fecha_desde:
         r = [p for p in r if (p.get("fecha") or "") >= fecha_desde]
     if fecha_hasta:
@@ -1364,6 +1378,9 @@ def _tool_listar_contactos_fn():
 
 
 def _tool_obtener_pago_detalle(pago_id):
+    visibles = {p["id"] for p in cargar_pagos_visibles()}
+    if int(pago_id) not in visibles:
+        return {"error": f"No tienes acceso al pago #{pago_id}"}
     client = supabase_admin if supabase_admin else supabase
     resp = client.table("pagos").select("*").eq("id", int(pago_id)).execute()
     if not resp.data:
@@ -1431,6 +1448,8 @@ def _tool_crear_pago(tipo, valor, concepto, medio=None, fecha=None, contacto_nom
 
 
 def _tool_eliminar_pago_por_id(pago_id):
+    if not es_admin():
+        return {"error": "Solo el administrador puede eliminar pagos."}
     client = supabase_admin if supabase_admin else supabase
     resp = client.table("pagos").select("*").eq("id", int(pago_id)).execute()
     if not resp.data:
@@ -1503,7 +1522,8 @@ REGLAS CRITICAS:
 2. Antes de eliminar_pago_por_id: primero llama obtener_pago_detalle, muestra detalle y pregunta "¿Confirmas eliminar? (si/no)". Espera 'si'.
 3. Para referencias vagas ("el de ayer", "el ultimo"): primero buscar_pagos con filtros adecuados y pide que el usuario elija si hay varios.
 4. Formatea pesos con puntos cada 3 digitos (ej $50.000).
-5. Si no hay datos, di "no encontre" en vez de inventar."""
+5. Si no hay datos, di "no encontre" en vez de inventar.
+6. Si una tool devuelve un campo 'error', muestra el mensaje de error LITERALMENTE al usuario (no reformules). Ejemplos de errores importantes: "Solo el administrador puede eliminar pagos", "No tienes acceso al pago #X"."""
 
     contents = []
     for h in historial:
@@ -1754,7 +1774,7 @@ def agregar():
 
 
 @app.route("/eliminar/<int:pago_id>", methods=["POST"])
-@login_requerido
+@admin_requerido
 def eliminar(pago_id):
     detalle = ""
     contacto_telefono = None
@@ -1798,7 +1818,7 @@ def eliminar(pago_id):
 @app.route("/descargar-excel")
 @login_requerido
 def descargar_excel():
-    pagos = cargar_pagos()
+    pagos = cargar_pagos_visibles()
     if not pagos:
         flash("No hay movimientos registrados.", "error")
         return redirect(url_for("inicio"))
@@ -1814,7 +1834,7 @@ def descargar_excel():
 @app.route("/correo")
 @login_requerido
 def correo():
-    pagos = cargar_pagos()
+    pagos = cargar_pagos_visibles()
     total_ingresos = sum(
         p["valor"] for p in pagos if p.get("tipo", "egreso") == "ingreso"
     )
