@@ -2,3 +2,4 @@
 .env.local
 *.pyc
 __pycache__/
+.claude-sesion.txt
