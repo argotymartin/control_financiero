@@ -1255,12 +1255,235 @@ def graficas():
     )
 
 
+# ==================== CHATBOT FUNCTION CALLING ====================
+
+GEMINI_TOOLS_DECL = [{
+    "functionDeclarations": [
+        {
+            "name": "buscar_pagos",
+            "description": "Busca pagos filtrando por concepto, tipo y/o rango de fechas. Devuelve lista ordenada por id.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "concepto": {"type": "string", "description": "Texto parcial a buscar en concepto (case-insensitive)."},
+                    "tipo": {"type": "string", "enum": ["ingreso", "egreso"]},
+                    "fecha_desde": {"type": "string", "description": "YYYY-MM-DD"},
+                    "fecha_hasta": {"type": "string", "description": "YYYY-MM-DD"},
+                    "limite": {"type": "integer", "description": "Max resultados. Default 20."}
+                }
+            }
+        },
+        {
+            "name": "obtener_totales",
+            "description": "Calcula ingresos, egresos y saldo en un rango de fechas. Sin params devuelve totales globales.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "fecha_desde": {"type": "string", "description": "YYYY-MM-DD"},
+                    "fecha_hasta": {"type": "string", "description": "YYYY-MM-DD"}
+                }
+            }
+        },
+        {
+            "name": "listar_contactos_fn",
+            "description": "Lista todos los contactos/destinatarios (nombre, telefono, email).",
+            "parameters": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "obtener_pago_detalle",
+            "description": "Detalle completo de un pago por su ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {"pago_id": {"type": "integer"}},
+                "required": ["pago_id"]
+            }
+        },
+        {
+            "name": "crear_pago",
+            "description": "Crea un nuevo pago. SOLO llamar despues de confirmacion explicita del usuario (respuesta 'si').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tipo": {"type": "string", "enum": ["ingreso", "egreso"]},
+                    "valor": {"type": "integer", "description": "Valor en pesos, entero."},
+                    "concepto": {"type": "string"},
+                    "medio": {"type": "string"},
+                    "fecha": {"type": "string", "description": "YYYY-MM-DD. Default hoy."},
+                    "contacto_nombre": {"type": "string"}
+                },
+                "required": ["tipo", "valor", "concepto"]
+            }
+        },
+        {
+            "name": "eliminar_pago_por_id",
+            "description": "Elimina un pago. SOLO llamar despues de confirmacion explicita del usuario (respuesta 'si').",
+            "parameters": {
+                "type": "object",
+                "properties": {"pago_id": {"type": "integer"}},
+                "required": ["pago_id"]
+            }
+        }
+    ]
+}]
+
+
+def _tool_buscar_pagos(concepto=None, tipo=None, fecha_desde=None, fecha_hasta=None, limite=20):
+    r = cargar_pagos()
+    if concepto:
+        q = str(concepto).lower()
+        r = [p for p in r if q in (p.get("concepto") or "").lower()]
+    if tipo:
+        r = [p for p in r if p.get("tipo") == tipo]
+    if fecha_desde:
+        r = [p for p in r if (p.get("fecha") or "") >= fecha_desde]
+    if fecha_hasta:
+        r = [p for p in r if (p.get("fecha") or "") <= fecha_hasta]
+    lim = int(limite or 20)
+    if len(r) > lim:
+        r = r[-lim:]
+    return [{"id": p["id"], "fecha": p.get("fecha"), "tipo": p.get("tipo"),
+             "valor": p.get("valor"), "concepto": p.get("concepto"),
+             "medio": p.get("medio"), "contacto_id": p.get("contacto_id")} for p in r]
+
+
+def _tool_obtener_totales(fecha_desde=None, fecha_hasta=None):
+    r = cargar_pagos()
+    if fecha_desde:
+        r = [p for p in r if (p.get("fecha") or "") >= fecha_desde]
+    if fecha_hasta:
+        r = [p for p in r if (p.get("fecha") or "") <= fecha_hasta]
+    ing = sum(p["valor"] for p in r if p.get("tipo") == "ingreso")
+    egr = sum(p["valor"] for p in r if p.get("tipo") == "egreso")
+    return {"ingresos": ing, "egresos": egr, "saldo": ing - egr, "cantidad": len(r)}
+
+
+def _tool_listar_contactos_fn():
+    return [{"id": c["id"], "nombre": c.get("nombre"),
+             "telefono": c.get("telefono"), "email": c.get("email")}
+            for c in listar_contactos()]
+
+
+def _tool_obtener_pago_detalle(pago_id):
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("pagos").select("*").eq("id", int(pago_id)).execute()
+    if not resp.data:
+        return {"error": f"No existe pago #{pago_id}"}
+    p = resp.data[0]
+    c = obtener_contacto(p.get("contacto_id"))
+    return {**p, "contacto_nombre": (c or {}).get("nombre")}
+
+
+def _tool_crear_pago(tipo, valor, concepto, medio=None, fecha=None, contacto_nombre=None,
+                     latitud=None, longitud=None):
+    from datetime import date
+    fecha = fecha or date.today().isoformat()
+    contacto = None
+    contacto_id = None
+    if contacto_nombre:
+        q = contacto_nombre.lower().strip()
+        m = [c for c in listar_contactos() if q in (c.get("nombre") or "").lower()]
+        if m:
+            contacto = m[0]
+            contacto_id = contacto["id"]
+    movimiento = {
+        "fecha": fecha, "valor": int(valor), "tipo": tipo,
+        "concepto": concepto, "medio": medio or "", "referencia": "",
+        "observacion": "", "imagen": "",
+        "latitud": float(latitud) if latitud is not None else None,
+        "longitud": float(longitud) if longitud is not None else None,
+        "contacto_id": contacto_id,
+    }
+    guardar_pago(movimiento)
+
+    pagos = cargar_pagos()
+    etiqueta = "Ingreso" if tipo == "ingreso" else "Egreso"
+
+    try:
+        enviar_notificacion_push(
+            titulo="Nuevo Movimiento",
+            cuerpo=f"{etiqueta} de ${int(valor):,.0f}: {concepto}"
+        )
+    except Exception as e:
+        print(f"Error push chat: {e}")
+
+    try:
+        nombre_dest = (contacto or {}).get("nombre", "")
+        mensaje_wa = (
+            f"[Nuevo {etiqueta}] #{len(pagos)}\n"
+            f"Valor: ${int(valor):,.0f}\n"
+            f"Concepto: {concepto or '(sin)'}\n"
+            f"Medio: {medio or '(sin)'}\n"
+            f"Fecha: {fecha}"
+            + (f"\nDestinatario: {nombre_dest}" if nombre_dest else "")
+        )
+        destinos = set()
+        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        if admin_to:
+            destinos.add(admin_to)
+        if contacto and contacto.get("telefono"):
+            destinos.add(contacto["telefono"])
+        for numero in destinos:
+            enviar_whatsapp(mensaje_wa, to=numero)
+    except Exception as e:
+        print(f"Error WhatsApp chat: {e}")
+
+    return {"ok": True, "mensaje": f"Pago {tipo} ${int(valor):,} '{concepto}' creado para {fecha}."}
+
+
+def _tool_eliminar_pago_por_id(pago_id):
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("pagos").select("*").eq("id", int(pago_id)).execute()
+    if not resp.data:
+        return {"error": f"No existe pago #{pago_id}"}
+    p = resp.data[0]
+    contacto = obtener_contacto(p.get("contacto_id"))
+    detalle = (
+        f"Valor: ${p.get('valor', 0):,}\n"
+        f"Concepto: {p.get('concepto') or '(sin)'}\n"
+        f"Fecha: {p.get('fecha', '')}"
+    )
+    if contacto and contacto.get("nombre"):
+        detalle += f"\nDestinatario: {contacto['nombre']}"
+
+    eliminar_pago(int(pago_id))
+
+    try:
+        destinos = set()
+        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        if admin_to:
+            destinos.add(admin_to)
+        if contacto and contacto.get("telefono"):
+            destinos.add(contacto["telefono"])
+        for numero in destinos:
+            enviar_whatsapp(f"[Eliminado] pago #{pago_id}\n{detalle}", to=numero)
+    except Exception as e:
+        print(f"Error WhatsApp delete chat: {e}")
+
+    return {"ok": True, "mensaje": f"Pago #{pago_id} eliminado."}
+
+
+GEMINI_TOOL_EXECUTORS = {
+    "buscar_pagos": _tool_buscar_pagos,
+    "obtener_totales": _tool_obtener_totales,
+    "listar_contactos_fn": _tool_listar_contactos_fn,
+    "obtener_pago_detalle": _tool_obtener_pago_detalle,
+    "crear_pago": _tool_crear_pago,
+    "eliminar_pago_por_id": _tool_eliminar_pago_por_id,
+}
+
+
 @app.route("/api/chat", methods=["POST"])
 @login_requerido
 def api_chat():
     import requests as _req
+    from datetime import date
 
-    mensaje = (request.get_json() or {}).get("mensaje", "").strip()
+    body = request.get_json() or {}
+    mensaje = (body.get("mensaje") or "").strip()
+    historial = body.get("historial") or []
+    gps_lat = body.get("latitud")
+    gps_lon = body.get("longitud")
+
     if not mensaje:
         return jsonify({"error": "Mensaje vacio"}), 400
 
@@ -1268,48 +1491,76 @@ def api_chat():
     if not api_key:
         return jsonify({"error": "GEMINI_API_KEY no configurada"}), 500
 
-    pagos = cargar_pagos()
-    total_ingresos = sum(p["valor"] for p in pagos if p.get("tipo") == "ingreso")
-    total_egresos = sum(p["valor"] for p in pagos if p.get("tipo") == "egreso")
-    saldo = total_ingresos - total_egresos
-    ultimos = pagos[-20:] if len(pagos) > 20 else pagos
-    resumen = "\n".join(
-        f"- {p.get('fecha')} | {p.get('tipo')} | ${p.get('valor'):,} | "
-        f"{p.get('concepto','')} | {p.get('medio','')}"
-        for p in ultimos
-    )
+    hoy = date.today().isoformat()
+    system_instr = f"""Eres un asistente financiero personal del usuario {session.get('email','')}.
+Hoy es {hoy}. Responde en espanol, breve y directo.
 
-    contexto = f"""Eres un asistente financiero del usuario {session.get('email', '')}.
-Responde en espanol, breve y directo. Si preguntan sobre sus pagos, usa estos datos.
-Si preguntan algo general (no de pagos), responde normal.
+Tienes tools para consultar y modificar los pagos del usuario. USA las tools para responder
+con datos reales, NO inventes cifras ni ids.
 
-TOTALES:
-- Ingresos: ${total_ingresos:,}
-- Egresos: ${total_egresos:,}
-- Saldo: ${saldo:,}
-- Total movimientos: {len(pagos)}
+REGLAS CRITICAS:
+1. Antes de crear_pago: muestra resumen (tipo, valor, concepto, fecha) y pregunta "¿Confirmas? (si/no)". Espera 'si' antes de llamar la funcion.
+2. Antes de eliminar_pago_por_id: primero llama obtener_pago_detalle, muestra detalle y pregunta "¿Confirmas eliminar? (si/no)". Espera 'si'.
+3. Para referencias vagas ("el de ayer", "el ultimo"): primero buscar_pagos con filtros adecuados y pide que el usuario elija si hay varios.
+4. Formatea pesos con puntos cada 3 digitos (ej $50.000).
+5. Si no hay datos, di "no encontre" en vez de inventar."""
 
-ULTIMOS {len(ultimos)} MOVIMIENTOS:
-{resumen}
+    contents = []
+    for h in historial:
+        role = h.get("role", "user")
+        if role not in ("user", "model"):
+            role = "user"
+        contents.append({"role": role, "parts": [{"text": h.get("text", "")}]})
+    contents.append({"role": "user", "parts": [{"text": mensaje}]})
 
-Pregunta del usuario: {mensaje}
-"""
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
-    try:
-        r = _req.post(
-            url,
-            headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
-            json={"contents": [{"parts": [{"text": contexto}]}]},
-            timeout=30,
-        )
-        data = r.json()
-        if r.status_code != 200:
-            return jsonify({"error": f"Gemini {r.status_code}: {data}"}), 500
-        texto = data["candidates"][0]["content"]["parts"][0]["text"]
-        return jsonify({"respuesta": texto})
-    except Exception as e:
-        return jsonify({"error": f"Error Gemini: {e}"}), 500
+    for _ in range(6):
+        payload = {
+            "contents": contents,
+            "tools": GEMINI_TOOLS_DECL,
+            "systemInstruction": {"parts": [{"text": system_instr}]}
+        }
+        try:
+            r = _req.post(url, headers=headers, json=payload, timeout=30)
+            data = r.json()
+            if r.status_code != 200:
+                return jsonify({"error": f"Gemini {r.status_code}: {data}"}), 500
+        except Exception as e:
+            return jsonify({"error": f"Error Gemini: {e}"}), 500
+
+        cand = (data.get("candidates") or [{}])[0]
+        parts = (cand.get("content") or {}).get("parts") or []
+        fn_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+
+        if not fn_calls:
+            texto = "".join(p.get("text", "") for p in parts).strip()
+            return jsonify({"respuesta": texto or "(sin respuesta)"})
+
+        contents.append({"role": "model", "parts": parts})
+
+        fn_responses = []
+        for fc in fn_calls:
+            name = fc.get("name")
+            args = fc.get("args") or {}
+            if name == "crear_pago" and gps_lat is not None and gps_lon is not None:
+                args.setdefault("latitud", gps_lat)
+                args.setdefault("longitud", gps_lon)
+            executor = GEMINI_TOOL_EXECUTORS.get(name)
+            if not executor:
+                result = {"error": f"tool desconocido: {name}"}
+            else:
+                try:
+                    result = executor(**args)
+                except Exception as e:
+                    result = {"error": str(e)}
+            fn_responses.append({
+                "functionResponse": {"name": name, "response": {"result": result}}
+            })
+        contents.append({"role": "user", "parts": fn_responses})
+
+    return jsonify({"error": "Limite de iteraciones alcanzado"}), 500
 
 
 @app.route("/deploy", methods=["POST"])

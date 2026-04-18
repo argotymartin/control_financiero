@@ -28,16 +28,38 @@
 {% endblock %}
 
 {% block contenido %}
+<style id="css-embed-chat">
+body.chat-embed .cabecera-fija,
+body.chat-embed .footer,
+body.chat-embed .barra-usuario,
+body.chat-embed .barra-acciones,
+body.chat-embed .header,
+body.chat-embed .mensaje { display: none !important; }
+body.chat-embed { padding-top: 0 !important; }
+body.chat-embed .chat-contenedor { margin: 5px auto !important; max-width: 100% !important; box-shadow: none !important; }
+</style>
+<script>
+(function() {
+    var embed = window.opener || window.parent !== window || window.location.search.indexOf('embed=1') >= 0;
+    if (embed) {
+        var apply = function() {
+            if (document.body) document.body.classList.add('chat-embed');
+        };
+        if (document.body) apply(); else document.addEventListener('DOMContentLoaded', apply);
+    }
+})();
+</script>
 <div class="chat-contenedor">
     <h2 style="margin-bottom:15px;">Chat</h2>
     <p style="font-size:13px; color:#666; margin-bottom:15px;">
-        Pregunta sobre tus pagos o cualquier tema. Ej: "cuanto gaste este mes?", "ultimo ingreso?", "que es React?"
+        Pregunta o pide acciones. Ej: "cuanto gaste este mes?", "crea gasto $30k transporte hoy", "elimina el ultimo pago", "lista contactos".
     </p>
     <div class="chat-mensajes" id="chat-mensajes">
         <div class="msg msg-sistema">Hola. Preguntame sobre tus pagos o lo que necesites.</div>
     </div>
     <div class="chat-input-wrap">
         <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." autofocus>
+        <button id="chat-mic" onclick="toggleMic()" title="Dictar por voz" style="background:#4CAF50;">🎤</button>
         <button id="chat-enviar" onclick="enviarMensaje()">Enviar</button>
     </div>
 </div>
@@ -46,6 +68,15 @@
 var mensajes = document.getElementById('chat-mensajes');
 var input = document.getElementById('chat-input');
 var boton = document.getElementById('chat-enviar');
+var historial = [];
+var gpsLat = null, gpsLon = null;
+
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        gpsLat = pos.coords.latitude;
+        gpsLon = pos.coords.longitude;
+    }, function() { /* permiso denegado, sigue sin GPS */ }, {timeout: 8000});
+}
 
 function agregarMsg(texto, tipo) {
     var div = document.createElement('div');
@@ -67,7 +98,7 @@ async function enviarMensaje() {
         var resp = await fetch('/api/chat', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({mensaje: texto})
+            body: JSON.stringify({mensaje: texto, historial: historial, latitud: gpsLat, longitud: gpsLon})
         });
         var data = await resp.json();
         msgPensando.remove();
@@ -75,6 +106,9 @@ async function enviarMensaje() {
             agregarMsg('Error: ' + data.error, 'sistema');
         } else {
             agregarMsg(data.respuesta, 'bot');
+            historial.push({role: 'user', text: texto});
+            historial.push({role: 'model', text: data.respuesta});
+            if (historial.length > 20) historial = historial.slice(-20);
         }
     } catch (e) {
         msgPensando.remove();
@@ -87,5 +121,50 @@ async function enviarMensaje() {
 input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') enviarMensaje();
 });
+
+var recon = null, escuchando = false;
+var btnMic = document.getElementById('chat-mic');
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SR) {
+    recon = new SR();
+    recon.lang = 'es-CO';
+    recon.continuous = false;
+    recon.interimResults = true;
+    recon.onresult = function(e) {
+        var texto = '';
+        for (var i = 0; i < e.results.length; i++) {
+            texto += e.results[i][0].transcript;
+        }
+        input.value = texto;
+    };
+    recon.onend = function() {
+        escuchando = false;
+        btnMic.textContent = '🎤';
+        btnMic.style.background = '#4CAF50';
+        if (input.value.trim()) enviarMensaje();
+    };
+    recon.onerror = function(e) {
+        agregarMsg('Error voz: ' + e.error, 'sistema');
+        escuchando = false;
+        btnMic.textContent = '🎤';
+        btnMic.style.background = '#4CAF50';
+    };
+} else {
+    btnMic.style.display = 'none';
+}
+
+function toggleMic() {
+    if (!recon) return;
+    if (escuchando) {
+        recon.stop();
+    } else {
+        input.value = '';
+        recon.start();
+        escuchando = true;
+        btnMic.textContent = '⏹';
+        btnMic.style.background = '#F44336';
+    }
+}
 </script>
 {% endblock %}
