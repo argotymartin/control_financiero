@@ -269,7 +269,7 @@ def obtener_suscripciones_push():
 
 
 def enviar_whatsapp(mensaje, to=None):
-    """Envia mensaje WhatsApp via Meta Cloud API. Si to=None usa WHATSAPP_NOTIFY_TO."""
+    """Envia mensaje WhatsApp via Meta Cloud API usando template aprobado notificacion_pago."""
     import requests as _req
 
     token = os.environ.get("WHATSAPP_TOKEN", "")
@@ -280,7 +280,21 @@ def enviar_whatsapp(mensaje, to=None):
         print("WhatsApp no configurado (falta TOKEN/PHONE_ID/to)")
         return False
 
+    mensaje_sanitizado = " | ".join(l.strip() for l in mensaje.split("\n") if l.strip())
     url = f"https://graph.facebook.com/v21.0/{phone_id}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "template",
+        "template": {
+            "name": "notificacion_pago",
+            "language": {"code": "es_CO"},
+            "components": [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": mensaje_sanitizado}],
+            }],
+        },
+    }
     try:
         r = _req.post(
             url,
@@ -288,12 +302,7 @@ def enviar_whatsapp(mensaje, to=None):
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             },
-            json={
-                "messaging_product": "whatsapp",
-                "to": to,
-                "type": "text",
-                "text": {"body": mensaje},
-            },
+            json=payload,
             timeout=15,
         )
         if r.status_code >= 400:
