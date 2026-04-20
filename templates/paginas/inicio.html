@@ -52,7 +52,7 @@
         </div>
     </div>
 
-    {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','GPS','Accion']) %}
+    {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','Destinatario','GPS','Accion']) %}
         <tbody id="tbody-movimientos"></tbody>
         <tfoot>
             <tr class="fila-total">
@@ -61,6 +61,7 @@
                 <td class="valor" id="foot-ingresos">$0</td>
                 <td class="valor" id="foot-saldo">$0</td>
                 <td colspan="2" id="foot-count">0 movimientos</td>
+                <td></td>
                 <td></td>
                 <td></td>
             </tr>
@@ -146,6 +147,14 @@
             ? '<form action="/eliminar/' + p.id + '" method="post" onsubmit="return confirm(\'Eliminar movimiento #' + (idx+1) + '?\')"><button type="submit" class="btn-eliminar-fila">Eliminar</button></form>'
             : '<button class="btn-eliminar-fila" disabled style="opacity:0.4; cursor:not-allowed;">Eliminar</button>';
 
+        var destinatarioCell = '';
+        if (p.contacto_nombre) {
+            destinatarioCell = '<strong>' + p.contacto_nombre + '</strong>';
+            if (p.contacto_telefono) {
+                destinatarioCell += '<br><small style="color:#666;">' + p.contacto_telefono + '</small>';
+            }
+        }
+
         tr.innerHTML =
             '<td>' + (idx + 1) + '</td>' +
             '<td>' + tdImg + '</td>' +
@@ -156,6 +165,7 @@
             '<td class="valor" style="color:' + (saldoAcum >= 0 ? '#28A745' : '#DC3545') + ';">' + fmtPeso(saldoAcum) + '</td>' +
             '<td>' + (p.medio || '') + '</td>' +
             '<td>' + (p.referencia || '') + '</td>' +
+            '<td>' + destinatarioCell + '</td>' +
             '<td style="text-align:center;">' + tdGps + '</td>' +
             '<td>' + tdAccion + '</td>';
         return tr;

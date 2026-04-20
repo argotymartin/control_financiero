@@ -1112,6 +1112,7 @@ class Movimiento:
         )
         self.latitud = datos.get("latitud")
         self.longitud = datos.get("longitud")
+        self.contacto_id = datos.get("contacto_id")
 
     @property
     def debito(self):
@@ -1150,8 +1151,11 @@ def inicio():
     ids_vistos = {v["pago_id"] for v in vistos_resp.data}
     no_vistos = sum(1 for m in movimientos if m.imagen and m.id not in ids_vistos)
 
-    pagos_json = [
-        {
+    contactos_map = {c["id"]: c for c in listar_contactos()}
+    pagos_json = []
+    for m in movimientos:
+        c = contactos_map.get(getattr(m, "contacto_id", None)) if hasattr(m, "contacto_id") else None
+        pagos_json.append({
             "id": m.id,
             "fecha": m.fecha,
             "valor": m.valor,
@@ -1164,9 +1168,9 @@ def inicio():
             "imagen_url": m.imagen_url,
             "latitud": m.latitud,
             "longitud": m.longitud,
-        }
-        for m in movimientos
-    ]
+            "contacto_nombre": (c or {}).get("nombre", ""),
+            "contacto_telefono": (c or {}).get("telefono", ""),
+        })
 
     return render_template(
         "paginas/inicio.html",
