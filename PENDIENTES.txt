@@ -8,16 +8,34 @@
   PRIORIDAD ALTA (proxima sesion)
 ==============================
 
-[ ] 1. NOTIFICACIONES PUSH
+[x] 1. NOTIFICACIONES PUSH
        - Globito automatico en el icono sin abrir la app
        - Avisa cuando alguien sube un pago nuevo
        - Tecnologia: Web Push API + pywebpush
        - Costo: Gratis
 
-[ ] 2. MAPA DE UBICACION (GPS)
+[x] 2. MAPA DE UBICACION (GPS)
        - Mapita que muestre donde esta el dispositivo
        - Registrar desde donde se subio cada pago
        - Tecnologia: Geolocation API + OpenStreetMap/Leaflet
+       - Costo: Gratis
+
+[ ] 13. OPTIMIZACION MOVIL (UI mobile-first)
+       - La app actual no se ve optima en celulares
+       - Mantener PWA + Flask actuales (no reescribir)
+       - Migrar templates Jinja a Tailwind CSS v4
+       - Componentes DaisyUI mobile-first
+       - Bottom navigation fijo (reemplazar menu actual)
+       - FAB (Floating Action Button) para agregar pago
+       - Cards apiladas verticales en lugar de tablas
+       - Modales full-screen en movil
+       - Inputs grandes 44px+ (font 16px evita zoom iOS)
+       - Swipe actions en cards (eliminar/editar)
+       - Pull-to-refresh lista pagos
+       - Bottom sheet para filtros
+       - Skeleton loaders mientras carga
+       - Tecnologia: Tailwind CSS v4 + DaisyUI + Alpine.js
+       - Estimado: 2-4 dias, ~500k-800k tokens
        - Costo: Gratis
 
 
@@ -25,7 +43,7 @@
   PRIORIDAD MEDIA
 ==============================
 
-[ ] 3. CHATBOT CON IA (Gemini)
+[x] 3. CHATBOT CON IA (Gemini)
        - El usuario pregunta y el bot responde con datos reales
        - Ejemplo: "Cuanto se pago en marzo?"
        - Tecnologia: Google Gemini API (plan gratuito)
@@ -67,7 +85,7 @@
        - Tecnologia: qrcode (Python) + lector JS
        - Costo: Gratis
 
-[ ] 9. ENVIO POR WHATSAPP
+[x] 9. ENVIO POR WHATSAPP
        - Enviar reporte de pagos por WhatsApp
        - Tecnologia: Twilio API o WhatsApp Business API
        - Costo: Twilio tiene plan gratuito limitado
@@ -77,7 +95,7 @@
         - Tecnologia: Telegram Bot API
         - Costo: Gratis
 
-[ ] 11. COMANDO DE VOZ
+[x] 11. COMANDO DE VOZ
         - "Registrar pago de 200 mil de Nequi"
         - Tecnologia: Web Speech API
         - Costo: Gratis
@@ -87,6 +105,96 @@
         - Basado en historial de pagos
         - Tecnologia: Python (pandas, scikit-learn) o Gemini
         - Costo: Gratis
+
+
+==============================
+  REFACTOR TECNICO - CLEAN ARCHITECTURE
+==============================
+
+Objetivo: migrar monolito web_pagos_supabase.py (2042 lineas) a
+arquitectura por capas usando Strangler Fig Pattern (opcion A).
+Monolito viejo convive con codigo nuevo hasta migrar todo.
+
+Estimado: 2-4M tokens Opus, o 700k-1.2M combinando Opus+Sonnet.
+Tiempo real: 10-15 dias calendario si se dedica tiempo completo.
+
+ESTRUCTURA OBJETIVO:
+    domain/           entities, value objects, exceptions (puro Python)
+    application/      use cases, ports (ABCs), DTOs
+    infrastructure/   adapters Supabase/Meta/Gemini/SMTP
+    presentation/     blueprints Flask, forms, decorators, app_factory
+
+PREREQUISITOS (antes de arrancar):
+[ ] A. Rotar secrets expuestos en wsgi_pythonanywhere.py
+       - Supabase service_role key (verificar si es real o demo)
+       - Gmail app password "vbzs yrtk auhr quya"
+       - Quitar hardcoded, mover a env vars PythonAnywhere
+       - Agregar wsgi_pythonanywhere.py a .gitignore
+       - git rm --cached wsgi_pythonanywhere.py
+
+[ ] B. Deploy pendiente a PythonAnywhere (cerrar ciclo actual)
+
+[ ] C. Crear rama refactor/clean-arch (no tocar main)
+
+FASES:
+
+[ ] FASE 0 - Setup (0.5 dia)
+       - Crear estructura carpetas vacias
+       - config.py con Settings dataclass (centraliza 13 env vars)
+       - Instalar ruff + black + pytest
+
+[ ] FASE 1 - Domain (1 dia)
+       - Entities: Pago, Usuario, Contacto
+       - Value objects: Money, Telefono
+       - Exceptions: DomainError, PagoInvalido
+       - Tests unitarios puros
+
+[ ] FASE 2 - Ports (0.5 dia)
+       - ABCs: PagoRepository, Notificador, AIChat, OCRService, EmailSender
+       - DTOs input/output
+
+[ ] FASE 3 - Use Cases (2 dias)
+       - registrar_pago, eliminar_pago, listar_pagos
+       - notificar_pago_whatsapp, procesar_ocr_comprobante
+       - chat_ai_pagos (con function calling Gemini)
+       - autenticar_usuario
+       - Tests con mocks
+
+[ ] FASE 4 - Infrastructure (2 dias)
+       - SupabasePagoRepo, SupabaseUsuarioRepo (impl ports)
+       - WhatsAppMeta, EmailSMTP
+       - GeminiChat, GeminiOCR
+       - Tests integracion
+
+[ ] FASE 5 - Presentation (2 dias)
+       - app_factory.py con create_app()
+       - DI container simple
+       - Blueprints: pagos_bp, auth_bp, chat_bp, api_bp
+       - Pydantic schemas forms
+       - Decorators: login_required, admin_required
+       - PILOTO: arrancar con /v2/pagos (listar), probar paralelo a /pagos viejo
+       - Una feature a la vez, deploy despues cada una
+
+[ ] FASE 6 - Cutover final (1 dia)
+       - wsgi.py nuevo apunta a create_app()
+       - Smoke test completo
+       - Deploy PythonAnywhere
+       - Monitoreo 24h
+       - Borrar web_pagos_supabase.py viejo
+       - Merge a main
+
+REGLAS DURANTE REFACTOR:
+- 1 commit por feature migrada, nunca mega-commits
+- Tests verdes antes de merge cada fase
+- No tocar URLs publicas ni templates (usuario no nota)
+- Mantener monolito funcionando hasta FASE 6
+- Deploy solo feature por feature, no big-bang
+
+ALTERNATIVA SI CUOTA AJUSTADA:
+    Layered Light (routes/services/repositories/models sin ABCs ni DI)
+    - 50% menos tokens, 80% del beneficio
+    - Sin puertos, sin use case classes, sin DI container
+    - Migracion mas rapida (1-2 dias)
 
 
 =====================================================
@@ -103,5 +211,10 @@
 [x] Boton eliminar solo para admin
 [x] Gestion de usuarios
 [x] Deploy en PythonAnywhere
+[x] Notificaciones push (Web Push API + pywebpush)
+[x] Mapa de ubicacion GPS (Geolocation API + Leaflet)
+[x] Chatbot con IA Gemini (function calling, 6 tools CRUD pagos)
+[x] Envio WhatsApp (template notificacion_pago aprobada Meta)
+[x] Comando de voz (Web Speech API en modal chat)
 
 =====================================================

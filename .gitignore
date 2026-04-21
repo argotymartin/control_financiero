@@ -3,3 +3,7 @@
 *.pyc
 __pycache__/
 .claude-sesion.txt
+env_vars_pythonanywhere.txt
+notas.txt
+credenciales*.txt
+secrets*.txt
