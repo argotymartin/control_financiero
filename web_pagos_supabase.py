@@ -1591,22 +1591,32 @@ def deploy():
     if not expected or token != expected:
         return jsonify({"error": "Token invalido"}), 401
 
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
     try:
-        pull = subprocess.run(
-            ["git", "-C", os.path.dirname(os.path.abspath(__file__)),
-             "pull", "origin", "main"],
+        fetch = subprocess.run(
+            ["git", "-C", repo_dir, "fetch", "origin", "main"],
             capture_output=True, text=True, timeout=60,
         )
+        if fetch.returncode != 0:
+            return jsonify({"ok": False, "step": "fetch", "stderr": fetch.stderr}), 500
+
+        reset = subprocess.run(
+            ["git", "-C", repo_dir, "reset", "--hard", "origin/main"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if reset.returncode != 0:
+            return jsonify({"ok": False, "step": "reset", "stderr": reset.stderr}), 500
+
         wsgi = "/var/www/margoty_pythonanywhere_com_wsgi.py"
         if os.path.exists(wsgi):
             os.utime(wsgi, None)
         return jsonify({
-            "ok": pull.returncode == 0,
-            "stdout": pull.stdout,
-            "stderr": pull.stderr,
-        }), 200 if pull.returncode == 0 else 500
+            "ok": True,
+            "stdout": reset.stdout,
+            "stderr": reset.stderr,
+        }), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/push-subscribe", methods=["POST"])

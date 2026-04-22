@@ -20,9 +20,14 @@ echo "==> git push"
 git push origin main
 
 echo "==> trigger deploy en PythonAnywhere"
-curl -sS -X POST \
-    -H "X-Deploy-Token: $DEPLOY_TOKEN" \
-    "$DEPLOY_URL" | python3 -m json.tool || echo "(respuesta no-JSON)"
+RESP=$(curl -sS -X POST -H "X-Deploy-Token: $DEPLOY_TOKEN" "$DEPLOY_URL")
+echo "$RESP" | python3 -m json.tool || echo "(respuesta no-JSON): $RESP"
+
+OK=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if d.get('ok') else 'no')" 2>/dev/null)
+if [ "$OK" != "yes" ]; then
+    echo "==> ERROR: webhook fallo. Revisar respuesta arriba."
+    exit 1
+fi
 
 echo ""
 echo "==> LISTO"
