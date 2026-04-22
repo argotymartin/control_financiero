@@ -7,3 +7,13 @@ env_vars_pythonanywhere.txt
 notas.txt
 credenciales*.txt
 secrets*.txt
+
+# Imagenes/archivos residuales (fuente viva = Supabase Storage)
+*.jpeg
+*.jpg
+*.pdf
+*.zip
+!static/**/*.jpg
+!static/**/*.jpeg
+!static/**/*.png
+rostros/

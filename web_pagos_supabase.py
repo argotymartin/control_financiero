@@ -41,26 +41,14 @@ import face_recognition
 import numpy as np
 from supabase import create_client
 
+from config import settings
+
 # ==================== CONFIGURACION SUPABASE ====================
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+settings.validate()
 
-# Compatibilidad: acepta SUPABASE_KEY (viejo) o SUPABASE_ANON_KEY (nuevo)
-SUPABASE_ANON_KEY = os.environ.get(
-    "SUPABASE_ANON_KEY", os.environ.get("SUPABASE_KEY", "")
-)
-SUPABASE_SERVICE_KEY = os.environ.get(
-    "SUPABASE_SERVICE_KEY",
-    os.environ.get("SUPABASE_SERVICE_ROLE_KEY", os.environ.get("SUPABASE_KEY", "")),
-)
-
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-    print("=" * 60)
-    print("  ERROR: Configura las variables de entorno:")
-    print("    export SUPABASE_URL='https://tu-proyecto.supabase.co'")
-    print("    export SUPABASE_ANON_KEY='tu-anon-key'")
-    print("    export SUPABASE_SERVICE_KEY='tu-service-role-key'")
-    print("=" * 60)
-    exit(1)
+SUPABASE_URL = settings.SUPABASE_URL
+SUPABASE_ANON_KEY = settings.SUPABASE_ANON_KEY
+SUPABASE_SERVICE_KEY = settings.SUPABASE_SERVICE_KEY
 
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -68,10 +56,10 @@ supabase_admin = (
     create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY) if SUPABASE_SERVICE_KEY else None
 )
 
-CORREO_REMITENTE = os.environ.get("CORREO_REMITENTE", "argoty.martin@gmail.com")
-CORREO_CLAVE_APP = os.environ.get("CORREO_CLAVE_APP", "")
+CORREO_REMITENTE = settings.CORREO_REMITENTE
+CORREO_CLAVE_APP = settings.CORREO_CLAVE_APP
 
-ADMIN_USUARIOS = os.environ.get("ADMIN_USUARIOS", "admin,admin@test.com").split(",")
+ADMIN_USUARIOS = settings.ADMIN_USUARIOS
 
 MESES = {
     "enero": "01",
@@ -89,7 +77,7 @@ MESES = {
 }
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "pagos_liliana_supabase_2024")
+app.secret_key = settings.SECRET_KEY
 
 
 # ==================== CONTEXT PROCESSOR ====================
@@ -272,10 +260,10 @@ def enviar_whatsapp(mensaje, to=None):
     """Envia mensaje WhatsApp via Meta Cloud API usando template aprobado notificacion_pago."""
     import requests as _req
 
-    token = os.environ.get("WHATSAPP_TOKEN", "")
-    phone_id = os.environ.get("WHATSAPP_PHONE_ID", "")
+    token = settings.WHATSAPP_TOKEN
+    phone_id = settings.WHATSAPP_PHONE_ID
     if to is None:
-        to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        to = settings.WHATSAPP_NOTIFY_TO
     if not (token and phone_id and to):
         print("WhatsApp no configurado (falta TOKEN/PHONE_ID/to)")
         return False
@@ -1447,7 +1435,7 @@ def _tool_crear_pago(tipo, valor, concepto, medio=None, fecha=None, contacto_nom
             + (f"\nDestinatario: {nombre_dest}" if nombre_dest else "")
         )
         destinos = set()
-        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        admin_to = settings.WHATSAPP_NOTIFY_TO
         if admin_to:
             destinos.add(admin_to)
         if contacto and contacto.get("telefono"):
@@ -1481,7 +1469,7 @@ def _tool_eliminar_pago_por_id(pago_id):
 
     try:
         destinos = set()
-        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        admin_to = settings.WHATSAPP_NOTIFY_TO
         if admin_to:
             destinos.add(admin_to)
         if contacto and contacto.get("telefono"):
@@ -1519,7 +1507,7 @@ def api_chat():
     if not mensaje:
         return jsonify({"error": "Mensaje vacio"}), 400
 
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    api_key = settings.GEMINI_API_KEY
     if not api_key:
         return jsonify({"error": "GEMINI_API_KEY no configurada"}), 500
 
@@ -1599,7 +1587,7 @@ REGLAS CRITICAS:
 @app.route("/deploy", methods=["POST"])
 def deploy():
     token = request.headers.get("X-Deploy-Token", "")
-    expected = os.environ.get("DEPLOY_TOKEN", "")
+    expected = settings.DEPLOY_TOKEN
     if not expected or token != expected:
         return jsonify({"error": "Token invalido"}), 401
 
@@ -1772,7 +1760,7 @@ def agregar():
             + (f"\nDestinatario: {nombre_dest}" if nombre_dest else "")
         )
         destinos = set()
-        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        admin_to = settings.WHATSAPP_NOTIFY_TO
         if admin_to:
             destinos.add(admin_to)
         if contacto and contacto.get("telefono"):
@@ -1814,7 +1802,7 @@ def eliminar(pago_id):
 
     try:
         destinos = set()
-        admin_to = os.environ.get("WHATSAPP_NOTIFY_TO", "")
+        admin_to = settings.WHATSAPP_NOTIFY_TO
         if admin_to:
             destinos.add(admin_to)
         if contacto_telefono:

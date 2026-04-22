@@ -63,6 +63,29 @@
        - Tecnologia: Chart.js (libreria gratuita)
        - Costo: Gratis
 
+[ ] 14. DOCKERIZAR APP (preparacion migracion)
+       - Empaquetar app en contenedor Docker
+       - Dockerfile con Python 3.13 + deps sistema (tesseract, dlib, libs)
+       - docker-compose.yml para dev local reproducible
+       - .dockerignore excluir secrets y archivos pesados
+       - Mantener PythonAnywhere funcionando (no romper)
+       - Habilita futura migracion a Render/Cloud Run con custom domain
+       - Permite dev local identico a prod
+       - Tecnologia: Docker + docker-compose
+       - Estimado: 1 dia, ~200k tokens
+       - Costo: Gratis (Docker CE local)
+
+[ ] 15. MIGRAR HOSTING CON CUSTOM DOMAIN
+       - Comprar dominio (~$10 USD/año, ej: .com o .xyz)
+       - Migrar de PythonAnywhere a Render/Fly.io/Cloud Run
+       - Requiere item 14 (Dockerizar) primero
+       - Custom domain gratis en tier free de Render
+       - HTTPS automatico
+       - URL limpia (sin pythonanywhere.com)
+       - Tecnologia: Docker + Render/Fly/Cloud Run + Cloudflare/Namecheap
+       - Estimado: 2 dias, ~300k tokens
+       - Costo: ~$10-15 USD/año (solo dominio)
+
 
 ==============================
   PRIORIDAD BAJA (futuro)
