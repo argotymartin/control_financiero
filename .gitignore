@@ -13,6 +13,8 @@ secrets*.txt
 *.jpg
 *.pdf
 *.zip
+*.xlsx
+*.xls
 !static/**/*.jpg
 !static/**/*.jpeg
 !static/**/*.png
