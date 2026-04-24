@@ -11,6 +11,8 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="/static/dist/output.css">
+    <script defer src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js"></script>
     <style>
         :root {
             --color-principal: #42A5F5;
@@ -22,6 +24,7 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #F0F2F5; color: #333; }
+        img.avatar-inline { display: inline-block; }
         .header {
             background: linear-gradient(135deg, var(--color-principal), var(--color-oscuro));
             color: white; padding: 25px 30px; text-align: center;
@@ -45,12 +48,12 @@
             display: flex; justify-content: center; gap: 12px;
             padding: 15px 20px; flex-wrap: wrap; background: #F0F2F5;
         }
-        .btn {
+        .btn-legacy {
             display: inline-block; padding: 10px 20px; border: none; border-radius: 6px;
             font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: none;
             color: white; transition: opacity 0.2s;
         }
-        .btn:hover { opacity: 0.85; }
+        .btn-legacy:hover { opacity: 0.85; }
         .btn-azul { background: #0078D4; }
         .btn-verde { background: #217346; }
         .btn-rojo { background: #D44638; }
@@ -104,18 +107,18 @@
             padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
         }
         .btn-eliminar-fila:hover { background: #990000; }
-        .modal {
+        .modal-legacy {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 1000;
             justify-content: center; align-items: center; cursor: pointer;
         }
-        .modal.activo { display: flex; }
-        .modal img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-        .modal .cerrar {
+        .modal-legacy.activo { display: flex; }
+        .modal-legacy img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        .modal-legacy .cerrar {
             position: absolute; top: 20px; right: 30px;
             color: white; font-size: 36px; cursor: pointer; font-weight: bold;
         }
-        .modal .cerrar:hover { color: #FF6B6B; }
+        .modal-legacy .cerrar:hover { color: #FF6B6B; }
         .panel {
             max-width: 900px; margin: 0 auto; background: white;
             border-radius: 10px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -141,8 +144,7 @@
         .fila-agregar input { flex: 1; padding: 8px 12px; border: 1px solid #CCC; border-radius: 5px; }
         .footer {
             text-align: center; padding: 15px; color: #999; font-size: 12px;
-            background: #F0F2F5; position: sticky; bottom: 0; z-index: 100;
-            border-top: 1px solid #DDD;
+            background: #F0F2F5; border-top: 1px solid #DDD;
         }
         .avatar {
             width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
@@ -157,9 +159,14 @@
             display: flex; align-items: center; justify-content: flex-end;
             gap: 10px; padding: 8px 20px; background: var(--color-oscuro);
         }
-        @media (max-width: 768px) {
+        /* Mobile padding bottom para no tapar contenido con dock */
+        @media (max-width: 767px) {
+            body { padding-bottom: 80px; }
+            .header { padding: 14px 16px; }
             .header h1 { font-size: 18px; }
-            .resumen { gap: 10px; }
+            .header p { font-size: 12px; }
+            .barra-usuario { padding: 6px 12px; gap: 6px; font-size: 12px; }
+            .resumen { gap: 10px; padding: 12px; }
             .tarjeta { padding: 12px 18px; min-width: 140px; }
             .tarjeta .numero { font-size: 20px; }
             thead th, tbody td { padding: 8px 6px; font-size: 12px; }
@@ -167,18 +174,40 @@
             .sin-imagen { width: 60px; height: 45px; }
             .form-grupo { grid-template-columns: 1fr; }
             .barra-acciones { gap: 8px; }
-            .btn { padding: 8px 14px; font-size: 12px; }
+            .btn-legacy { padding: 8px 14px; font-size: 12px; }
+            /* Inputs sin zoom iOS */
+            input[type="text"], input[type="email"], input[type="password"],
+            input[type="number"], input[type="date"], input[type="tel"],
+            input[type="search"], input[type="url"], select, textarea {
+                font-size: 16px !important;
+            }
         }
         {% block estilos_extra %}{% endblock %}
     </style>
 </head>
 <body>
     <div class="cabecera-fija">
-        <div class="header">
-            <h1>Control Financiero</h1>
-            <span class="badge-supabase">Supabase</span>
-            {% if fecha_desde %}
-            <p>Desde: {{ fecha_desde }} - Hasta: {{ fecha_hasta }}</p>
+        <div class="header flex items-center justify-between gap-3 md:block">
+            <button type="button" aria-label="Menu"
+                    class="md:hidden text-white text-2xl p-1 rounded hover:bg-white/20"
+                    onclick="document.getElementById('menu-drawer').checked = true;">
+                &#9776;
+            </button>
+            <div class="flex-1 text-center md:text-center">
+                <h1 class="!mb-0 md:!mb-1">Control Financiero</h1>
+                <span class="badge-supabase hidden md:inline-block">Supabase</span>
+                {% if fecha_desde %}
+                <p class="hidden md:block">Desde: {{ fecha_desde }} - Hasta: {{ fecha_hasta }}</p>
+                {% endif %}
+            </div>
+            {% if email_usuario %}
+            <img src="/foto-usuario/{{ email_usuario | urlencode }}" alt="avatar"
+                 class="md:hidden avatar-inline rounded-full object-cover border-2"
+                 onerror="this.style.display='none';"
+                 onclick="document.getElementById('modal-avatar').style.display='flex';"
+                 style="width:36px; height:36px; border-color: var(--color-claro); cursor:pointer;">
+            {% else %}
+            <span class="md:hidden"></span>
             {% endif %}
         </div>
 
@@ -190,7 +219,7 @@
         {% endif %}
         {% endwith %}
 
-        <div class="barra-usuario">
+        <div class="barra-usuario hidden md:flex">
             {% if email_usuario %}
             <img src="/foto-usuario/{{ email_usuario | urlencode }}" alt="avatar"
                  onerror="this.style.display='none'; document.getElementById('avatar-fallback').style.display='inline-flex';"
@@ -208,17 +237,17 @@
             </a>
         </div>
 
-        <div class="barra-acciones">
-            <a href="/" class="btn btn-azul">Inicio</a>
-            <a href="/nuevo" class="btn btn-azul">Agregar Movimiento</a>
-            <a href="/descargar-excel" class="btn btn-verde">Descargar Excel</a>
-            <a href="/correo" class="btn btn-rojo">Enviar por Correo</a>
-            <a href="/contactos" class="btn" style="background: #E67E22;">&#128100; Contactos</a>
-            <a href="/registrar-rostro" class="btn" style="background: #28A745;">&#128247; Mi Rostro</a>
-            <a href="#" onclick="abrirChatModal(); return false;" class="btn" style="background: #8E44AD;">&#128172; Chat</a>
-            <a href="/graficas" class="btn" style="background: #17A2B8;">&#128200; Graficas</a>
+        <div class="barra-acciones hidden md:flex">
+            <a href="/" class="btn-legacy btn-azul">Inicio</a>
+            <a href="/nuevo" class="btn-legacy btn-azul">Agregar Movimiento</a>
+            <a href="/descargar-excel" class="btn-legacy btn-verde">Descargar Excel</a>
+            <a href="/correo" class="btn-legacy btn-rojo">Enviar por Correo</a>
+            <a href="/contactos" class="btn-legacy" style="background: #E67E22;">&#128100; Contactos</a>
+            <a href="/registrar-rostro" class="btn-legacy" style="background: #28A745;">&#128247; Mi Rostro</a>
+            <a href="#" onclick="abrirChatModal(); return false;" class="btn-legacy" style="background: #8E44AD;">&#128172; Chat</a>
+            <a href="/graficas" class="btn-legacy" style="background: #17A2B8;">&#128200; Graficas</a>
             {% if es_admin %}
-            <a href="/usuarios" class="btn" style="background: #6C3483;">Usuarios</a>
+            <a href="/usuarios" class="btn-legacy" style="background: #6C3483;">Usuarios</a>
             {% endif %}
             {% block nav_extra %}{% endblock %}
         </div>
@@ -226,7 +255,62 @@
 
     {% block contenido %}{% endblock %}
 
-    <div class="footer">Control Financiero (Supabase)</div>
+    <div class="footer hidden md:block">Control Financiero (Supabase)</div>
+
+    <!-- Mobile drawer menu secundario -->
+    <div class="drawer drawer-end md:hidden">
+        <input id="menu-drawer" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-side z-[2000]">
+            <label for="menu-drawer" aria-label="cerrar" class="drawer-overlay"></label>
+            <ul class="menu bg-base-100 text-base-content min-h-full w-72 p-4 gap-1">
+                <li class="menu-title flex-row items-center gap-2 !p-2">
+                    {% if email_usuario %}
+                    <img src="/foto-usuario/{{ email_usuario | urlencode }}" alt="avatar"
+                         class="avatar-inline rounded-full object-cover"
+                         onerror="this.style.display='none';"
+                         style="width:40px; height:40px;">
+                    {% endif %}
+                    <div class="flex flex-col">
+                        <span class="text-sm font-semibold text-base-content">{{ nombre_usuario or 'Invitado' }}</span>
+                        <span class="text-xs opacity-60">{{ email_usuario or '' }}</span>
+                    </div>
+                </li>
+                <li><a href="/descargar-excel">&#128196; Descargar Excel</a></li>
+                <li><a href="/correo">&#128231; Enviar por Correo</a></li>
+                <li><a href="/contactos">&#128100; Contactos</a></li>
+                <li><a href="/registrar-rostro">&#128247; Mi Rostro</a></li>
+                {% if es_admin %}
+                <li><a href="/usuarios">&#128101; Usuarios</a></li>
+                {% endif %}
+                <li class="mt-4"><a href="{{ url_for('auth_logout') }}" class="text-error">&#128682; Cerrar Sesion</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Mobile bottom dock -->
+    <div class="dock dock-sm bg-base-100 border-t border-base-300 md:hidden z-[1500]">
+        <a href="/" class="{% if request.path == '/' %}dock-active{% endif %}">
+            <span class="text-xl">&#127968;</span>
+            <span class="dock-label">Inicio</span>
+        </a>
+        <a href="#" onclick="abrirChatModal(); return false;">
+            <span class="text-xl">&#128172;</span>
+            <span class="dock-label">Chat</span>
+        </a>
+        <a href="/nuevo" class="!bg-[var(--color-oscuro)] text-white rounded-full mx-1 my-1 shadow-lg"
+           style="transform: translateY(-8px);">
+            <span class="text-3xl leading-none">+</span>
+            <span class="dock-label text-white">Nuevo</span>
+        </a>
+        <a href="/graficas" class="{% if request.path == '/graficas' %}dock-active{% endif %}">
+            <span class="text-xl">&#128200;</span>
+            <span class="dock-label">Graficas</span>
+        </a>
+        <label for="menu-drawer" class="cursor-pointer">
+            <span class="text-xl">&#9776;</span>
+            <span class="dock-label">Menu</span>
+        </label>
+    </div>
 
     {% if email_usuario %}
     <div id="modal-avatar" onclick="this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:3000; justify-content:center; align-items:center; cursor:pointer;">

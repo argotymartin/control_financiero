@@ -13,7 +13,7 @@
                     <input type="file" name="imagen" accept="image/*" required
                            style="padding: 10px; border: 2px dashed var(--color-principal); border-radius: 8px; width: 100%; cursor: pointer;">
                 </div>
-                <button type="submit" class="btn btn-azul">Leer imagen con OCR</button>
+                <button type="submit" class="btn-legacy btn-azul">Leer imagen con OCR</button>
             </form>
             {% if datos %}
             <div style="padding: 10px; border-radius: 5px; margin: 10px 0; background: #D4EDDA; color: #155724; font-size: 13px; text-align: center;">
@@ -57,7 +57,7 @@
                     {{ campo_texto('observacion', 'Observacion', valor=datos.observacion if datos else '') }}
                 {% endcall %}
                 <div style="text-align: right; margin-top: 15px;">
-                    <button type="submit" class="btn btn-verde" style="font-size: 16px; padding: 12px 30px;">
+                    <button type="submit" class="btn-legacy btn-verde" style="font-size: 16px; padding: 12px 30px;">
                         CONFIRMAR Y REGISTRAR
                     </button>
                 </div>

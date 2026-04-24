@@ -23,7 +23,7 @@
                         <input type="password" name="password" placeholder="Minimo 6 caracteres" required>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-verde">+ Crear Usuario</button>
+                <button type="submit" class="btn-legacy btn-verde">+ Crear Usuario</button>
             </form>
 
             <h3 style="font-size: 15px; margin-top: 25px; color: #555;">
@@ -64,10 +64,10 @@
             <canvas id="canvas-modal" style="display:none;"></canvas>
             <p id="estado-modal" style="font-size:13px; color:var(--color-principal); margin:10px 0;">Ponte frente a la camara</p>
             <div style="margin-top:10px; display:flex; gap:10px; justify-content:center;">
-                <button type="button" class="btn btn-verde" onclick="capturarYGuardarRostro()">
+                <button type="button" class="btn-legacy btn-verde" onclick="capturarYGuardarRostro()">
                     &#128247; Tomar Foto
                 </button>
-                <button type="button" class="btn btn-rojo" onclick="cerrarModalRostro()">
+                <button type="button" class="btn-legacy btn-rojo" onclick="cerrarModalRostro()">
                     Cancelar
                 </button>
             </div>
@@ -103,7 +103,7 @@
                         <td style="padding: 12px;">${usuario.nombre || '-'}</td>
                         <td style="padding: 12px; text-align: center;">${celdaRostro}</td>
                         <td style="padding: 12px; text-align: center;">
-                            <button type="button" class="btn btn-azul" style="font-size: 12px; padding: 6px 12px;"
+                            <button type="button" class="btn-legacy btn-azul" style="font-size: 12px; padding: 6px 12px;"
                                     onclick="abrirModalRostro('${usuario.email}')">
                                 &#128247; ${usuario.tiene_rostro ? 'Actualizar' : 'Registrar'}
                             </button>

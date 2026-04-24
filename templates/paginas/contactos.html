@@ -23,7 +23,7 @@
                     <input type="email" name="email" placeholder="correo@ejemplo.com">
                 </div>
             </div>
-            <button type="submit" class="btn btn-verde">+ Agregar</button>
+            <button type="submit" class="btn-legacy btn-verde">+ Agregar</button>
         </form>
 
         <h3 style="font-size:15px; margin-top:25px; color:#555;">Listado</h3>
@@ -61,8 +61,8 @@ async function cargar() {
             <td style="padding:12px;"><input value="${c.telefono || ''}" data-id="${c.id}" data-campo="telefono" style="width:100%; padding:5px; border:1px solid #DDD;"></td>
             <td style="padding:12px;"><input value="${c.email || ''}" data-id="${c.id}" data-campo="email" style="width:100%; padding:5px; border:1px solid #DDD;"></td>
             <td style="padding:12px; text-align:center;">
-                <button class="btn btn-azul" style="font-size:12px; padding:5px 10px;" onclick="guardar(${c.id})">Guardar</button>
-                <button class="btn btn-rojo" style="font-size:12px; padding:5px 10px;" onclick="borrar(${c.id})">Borrar</button>
+                <button class="btn-legacy btn-azul" style="font-size:12px; padding:5px 10px;" onclick="guardar(${c.id})">Guardar</button>
+                <button class="btn-legacy btn-rojo" style="font-size:12px; padding:5px 10px;" onclick="borrar(${c.id})">Borrar</button>
             </td>
         `;
         tbody.appendChild(tr);
