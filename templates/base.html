@@ -175,12 +175,26 @@
             .form-grupo { grid-template-columns: 1fr; }
             .barra-acciones { gap: 8px; }
             .btn-legacy { padding: 8px 14px; font-size: 12px; }
-            /* Inputs sin zoom iOS */
+            /* Inputs mobile: altura touch 44px+ y sin zoom iOS */
             input[type="text"], input[type="email"], input[type="password"],
             input[type="number"], input[type="date"], input[type="tel"],
             input[type="search"], input[type="url"], select, textarea {
                 font-size: 16px !important;
+                padding: 12px 14px !important;
+                min-height: 44px;
             }
+            input[type="file"] {
+                font-size: 16px !important;
+                padding: 12px !important;
+                width: 100%;
+            }
+            /* Form grupos: siempre 1 col en mobile (override inline style) */
+            .form-grupo { grid-template-columns: 1fr !important; gap: 14px !important; }
+            .panel { padding: 16px !important; border-radius: 12px !important; margin: 0 12px; }
+            .panel h2 { font-size: 16px !important; }
+            /* Botones submit: full-width mobile */
+            .panel form > div[style*="text-align: right"] { text-align: center !important; }
+            .panel form .btn-legacy { width: 100%; padding: 14px !important; font-size: 16px !important; }
         }
         {% block estilos_extra %}{% endblock %}
     </style>
