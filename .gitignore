@@ -19,3 +19,7 @@ secrets*.txt
 !static/**/*.jpeg
 !static/**/*.png
 rostros/
+
+# Node / Tailwind
+node_modules/
+tailwindcss-linux-x64

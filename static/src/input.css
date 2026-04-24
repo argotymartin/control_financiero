@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@source "../../templates/**/*.html";
+@source "../../static/**/*.js";
+
+@plugin "daisyui" {
+  themes: light --default, dark;
+  logs: false;
+}
+
+@theme {
+  --color-brand-50:  #E3F2FD;
+  --color-brand-100: #BBDEFB;
+  --color-brand-200: #90CAF9;
+  --color-brand-300: #64B5F6;
+  --color-brand-400: #42A5F5;
+  --color-brand-500: #2196F3;
+  --color-brand-600: #1E88E5;
+  --color-brand-700: #1976D2;
+  --color-brand-800: #1565C0;
+  --color-brand-900: #0D47A1;
+}
