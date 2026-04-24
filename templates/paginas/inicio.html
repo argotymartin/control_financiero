@@ -22,6 +22,56 @@
         0% { background: #FFF3CD; }
         100% { background: transparent; }
     }
+    /* ---- Cards mobile ---- */
+    #cards-movimientos { display: none; padding: 12px; gap: 12px; flex-direction: column; }
+    .pago-card {
+        background: white; border-radius: 12px; padding: 14px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        display: grid; grid-template-columns: auto 1fr auto; gap: 12px;
+        align-items: center; position: relative;
+    }
+    .pago-card .card-thumb { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; position: relative; cursor: pointer; }
+    .pago-card .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .pago-card .card-thumb.sin-img { background: #F0F0F0; display: flex; align-items: center; justify-content: center; color: #BBB; font-size: 12px; }
+    .pago-card .card-body { min-width: 0; }
+    .pago-card .card-concepto {
+        font-weight: 600; font-size: 15px; color: #333;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pago-card .card-meta { font-size: 12px; color: #777; margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .pago-card .card-meta .badge-tipo { padding: 1px 8px; border-radius: 10px; font-weight: 600; font-size: 11px; }
+    .pago-card .badge-ingreso { background: #D4EDDA; color: #155724; }
+    .pago-card .badge-egreso { background: #F8D7DA; color: #721C24; }
+    .pago-card .card-valor { font-size: 17px; font-weight: 700; text-align: right; }
+    .pago-card .card-valor.ingreso { color: #28A745; }
+    .pago-card .card-valor.egreso { color: #DC3545; }
+    .pago-card .card-saldo { font-size: 11px; color: #888; text-align: right; margin-top: 2px; }
+    .pago-card .card-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; border-top: 1px solid #F0F0F0; padding-top: 8px; }
+    .pago-card .card-actions button, .pago-card .card-actions a {
+        font-size: 12px; padding: 6px 12px; border-radius: 6px; border: none;
+        cursor: pointer; text-decoration: none; font-weight: 600;
+    }
+    .pago-card .btn-mapa { background: #E3F2FD; color: #1565C0; }
+    .pago-card .btn-mapa.disabled { opacity: 0.3; cursor: not-allowed; }
+    .pago-card .btn-eliminar-card { background: #FFEBEE; color: #C62828; }
+    .pago-card .btn-eliminar-card[disabled] { opacity: 0.3; cursor: not-allowed; }
+    .pago-card .card-extra { grid-column: 1 / -1; font-size: 12px; color: #666; display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px solid #F5F5F5; padding-top: 8px; }
+    .pago-card .card-extra strong { color: #333; font-weight: 600; }
+
+    /* Resumen mobile: 2 col grid */
+    @media (max-width: 767px) {
+        .resumen {
+            display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px !important;
+            padding: 12px !important;
+        }
+        .resumen .tarjeta { min-width: 0; padding: 12px 10px; }
+        .resumen .tarjeta:nth-child(5) { grid-column: 1 / -1; }
+        .contenedor-tabla { display: none; }
+        #cards-movimientos { display: flex; }
+        /* Modal imagen fullscreen mobile */
+        .modal-legacy img { max-width: 100%; max-height: 100%; border-radius: 0; }
+        .modal-legacy.activo { background: rgba(0,0,0,0.95); }
+    }
 {% endblock %}
 
 {% block contenido %}
@@ -68,6 +118,9 @@
         </tfoot>
     {% endcall %}
 
+    <!-- Cards mobile -->
+    <div id="cards-movimientos"></div>
+
     {{ modal_imagen() }}
 
     <div id="modal-mapa" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center;">
@@ -90,6 +143,13 @@
 
     function fmtPeso(v) {
         return '$' + Math.round(v).toLocaleString('es-CO');
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, function(c) {
+            return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+        });
     }
 
     function buildImgUrl(imagen) {
@@ -119,7 +179,7 @@
         if (e.key === 'Escape') cerrarMapa();
     });
 
-    // ---- Render fila individual ----
+    // ---- Render fila tabla (desktop) ----
     function renderFila(p, idx, saldoAcum) {
         var tr = document.createElement('tr');
         tr.dataset.id = p.id;
@@ -171,10 +231,69 @@
         return tr;
     }
 
+    // ---- Render card mobile ----
+    function renderCard(p, idx, saldoAcum) {
+        var card = document.createElement('div');
+        card.className = 'pago-card';
+        card.dataset.id = p.id;
+        card.id = 'card-' + p.id;
+
+        var tipo = p.tipo;
+        var valor = p.valor || 0;
+        var imgUrl = p.imagen_url || buildImgUrl(p.imagen);
+
+        var thumbHtml;
+        if (p.imagen) {
+            var puntoHtml = !idsVistos.has(p.id)
+                ? '<span class="punto-nuevo" id="punto-card-' + p.id + '"></span>' : '';
+            thumbHtml = '<div class="card-thumb" id="thumb-card-' + p.id + '" onclick="verYMarcar(\'' + imgUrl + '\',' + p.id + ')">'
+                + puntoHtml + '<img src="' + imgUrl + '" alt="Comprobante"></div>';
+        } else {
+            thumbHtml = '<div class="card-thumb sin-img">sin img</div>';
+        }
+
+        var mapaBtn = (p.latitud && p.longitud)
+            ? '<button class="btn-mapa" onclick="verMapa(' + p.latitud + ',' + p.longitud + ',\'' + escapeHtml(p.concepto||'').replace(/'/g,"\\'") + '\')">&#127757; Mapa</button>'
+            : '<button class="btn-mapa disabled" disabled>Sin GPS</button>';
+
+        var elimBtn = esAdmin
+            ? '<form action="/eliminar/' + p.id + '" method="post" onsubmit="return confirm(\'Eliminar #' + (idx+1) + '?\')" style="display:inline;"><button type="submit" class="btn-eliminar-card">Eliminar</button></form>'
+            : '<button class="btn-eliminar-card" disabled>Eliminar</button>';
+
+        var destinatarioExtra = '';
+        if (p.contacto_nombre) {
+            destinatarioExtra = '<span><strong>Para:</strong> ' + escapeHtml(p.contacto_nombre) + (p.contacto_telefono ? ' (' + escapeHtml(p.contacto_telefono) + ')' : '') + '</span>';
+        }
+        var medioExtra = p.medio ? '<span><strong>Medio:</strong> ' + escapeHtml(p.medio) + '</span>' : '';
+        var refExtra = p.referencia ? '<span><strong>Ref:</strong> ' + escapeHtml(p.referencia) + '</span>' : '';
+        var extraHtml = (destinatarioExtra || medioExtra || refExtra)
+            ? '<div class="card-extra">' + destinatarioExtra + medioExtra + refExtra + '</div>'
+            : '';
+
+        card.innerHTML =
+            thumbHtml +
+            '<div class="card-body">' +
+                '<div class="card-concepto">#' + (idx+1) + ' ' + escapeHtml(p.concepto || '') + '</div>' +
+                '<div class="card-meta">' +
+                    '<span class="badge-tipo ' + (tipo === 'ingreso' ? 'badge-ingreso' : 'badge-egreso') + '">' + (tipo === 'ingreso' ? 'Ingreso' : 'Egreso') + '</span>' +
+                    '<span>' + escapeHtml(p.fecha || '') + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div>' +
+                '<div class="card-valor ' + (tipo === 'ingreso' ? 'ingreso' : 'egreso') + '">' + (tipo === 'ingreso' ? '+' : '-') + fmtPeso(valor) + '</div>' +
+                '<div class="card-saldo">Saldo: ' + fmtPeso(saldoAcum) + '</div>' +
+            '</div>' +
+            extraHtml +
+            '<div class="card-actions">' + mapaBtn + elimBtn + '</div>';
+        return card;
+    }
+
     function renderTbody() {
         pagosArr.sort(function(a, b) { return (a.id || 0) - (b.id || 0); });
         var tbody = document.getElementById('tbody-movimientos');
+        var cardsCont = document.getElementById('cards-movimientos');
         tbody.innerHTML = '';
+        cardsCont.innerHTML = '';
         var acum = 0;
         var totIng = 0, totEgr = 0;
         pagosArr.forEach(function(p, i) {
@@ -182,6 +301,7 @@
             if (p.tipo === 'ingreso') totIng += p.valor;
             else totEgr += p.valor;
             tbody.appendChild(renderFila(p, i, acum));
+            cardsCont.appendChild(renderCard(p, i, acum));
         });
         document.getElementById('card-ingresos').textContent = fmtPeso(totIng);
         document.getElementById('card-egresos').textContent = fmtPeso(totEgr);
@@ -202,6 +322,12 @@
             tr.classList.remove('fila-flash');
             void tr.offsetWidth;
             tr.classList.add('fila-flash');
+        }
+        var card = document.getElementById('card-' + id);
+        if (card) {
+            card.classList.remove('fila-flash');
+            void card.offsetWidth;
+            card.classList.add('fila-flash');
         }
     }
 
@@ -232,8 +358,10 @@
     function verYMarcar(url, pagoId) {
         verImagen(url);
         var punto = document.getElementById('punto-' + pagoId);
-        if (punto) {
-            punto.remove();
+        if (punto) punto.remove();
+        var puntoCard = document.getElementById('punto-card-' + pagoId);
+        if (puntoCard) puntoCard.remove();
+        if (!idsVistos.has(pagoId)) {
             idsVistos.add(pagoId);
             fetch('/marcar-visto/' + pagoId, { method: 'POST' })
             .then(function(r) { return r.json(); })
