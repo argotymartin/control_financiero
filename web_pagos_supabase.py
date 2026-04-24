@@ -275,7 +275,7 @@ def enviar_whatsapp(mensaje, to=None):
         "to": to,
         "type": "template",
         "template": {
-            "name": "notificacion_pago",
+            "name": "pago_notificacion_utility",
             "language": {"code": "es_CO"},
             "components": [{
                 "type": "body",
