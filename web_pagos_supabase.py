@@ -182,6 +182,26 @@ def eliminar_contacto_db(cid):
     client.table("contactos").delete().eq("id", cid).execute()
 
 
+def listar_conceptos():
+    client = supabase_admin if supabase_admin else supabase
+    resp = client.table("conceptos").select("*").eq("activo", True).order("nombre").execute()
+    return resp.data or []
+
+
+def resolver_concepto_id(nombre):
+    """Devuelve concepto.id pa el nombre dado. Crea si no existe (case-insensitive)."""
+    nombre = (nombre or "").strip()
+    if not nombre:
+        return None
+    client = supabase_admin if supabase_admin else supabase
+    existentes = client.table("conceptos").select("id,nombre").execute().data or []
+    for c in existentes:
+        if (c.get("nombre") or "").lower() == nombre.lower():
+            return c["id"]
+    resp = client.table("conceptos").insert({"nombre": nombre}).execute()
+    return resp.data[0]["id"] if resp.data else None
+
+
 def obtener_no_vistos(usuario):
     pagos = cargar_pagos()
     pagos_con_imagen = [p for p in pagos if p.get("imagen")]
@@ -199,10 +219,18 @@ def obtener_no_vistos(usuario):
 
 
 def marcar_visto(usuario, pago_id):
+    if not usuario:
+        print(f"[marcar_visto] usuario vacio, pago_id={pago_id} — abort")
+        return
     client = supabase_admin if supabase_admin else supabase
-    client.table("pagos_vistos").upsert(
-        {"usuario": usuario, "pago_id": pago_id}
-    ).execute()
+    try:
+        client.table("pagos_vistos").upsert(
+            {"usuario": usuario, "pago_id": pago_id},
+            on_conflict="usuario,pago_id",
+        ).execute()
+    except Exception as e:
+        print(f"[marcar_visto] error usuario={usuario} pago_id={pago_id}: {e}")
+        raise
 
 
 # ==================== SUPABASE STORAGE ====================
@@ -405,7 +433,7 @@ def auth_ingresar():
         )
 
         if resp.user:
-            session["usuario"] = resp.user.id
+            session["usuario"] = resp.user.email
             session["email"] = resp.user.email
             session["nombre"] = resp.user.email.split("@")[0]
             session["access_token"] = resp.session.access_token
@@ -470,7 +498,7 @@ def auth_callback():
         try:
             resp = supabase.auth.exchange_code_for_session(code)
             if resp.user:
-                session["usuario"] = resp.user.id
+                session["usuario"] = resp.user.email
                 session["email"] = resp.user.email
                 session["nombre"] = resp.user.user_metadata.get(
                     "full_name", resp.user.email.split("@")[0]
@@ -619,6 +647,7 @@ def auth_login_facial():
             return jsonify(ok=False, error='Rostro no reconocido'), 401
 
         # Guardar en sesion (sin necesidad de password)
+        session['usuario'] = email
         session['email'] = email
         session['nombre'] = email.split('@')[0]
         return jsonify(ok=True, nombre=email.split('@')[0])
@@ -1101,6 +1130,7 @@ class Movimiento:
         self.latitud = datos.get("latitud")
         self.longitud = datos.get("longitud")
         self.contacto_id = datos.get("contacto_id")
+        self.concepto_id = datos.get("concepto_id")
 
     @property
     def debito(self):
@@ -1129,7 +1159,7 @@ def inicio():
     total_egresos = sum(m.debito for m in movimientos)
     saldo = total_ingresos - total_egresos
     es_admin_flag = es_admin()
-    usuario_id = session.get("usuario")
+    usuario_id = session.get("usuario") or session.get("email")
     vistos_resp = (
         supabase.table("pagos_vistos")
         .select("pago_id")
@@ -1139,16 +1169,22 @@ def inicio():
     ids_vistos = {v["pago_id"] for v in vistos_resp.data}
     no_vistos = sum(1 for m in movimientos if m.imagen and m.id not in ids_vistos)
 
-    contactos_map = {c["id"]: c for c in listar_contactos()}
+    contactos = listar_contactos()
+    contactos_map = {c["id"]: c for c in contactos}
+    conceptos = listar_conceptos()
+    conceptos_map = {c["id"]: c for c in conceptos}
     pagos_json = []
     for m in movimientos:
         c = contactos_map.get(getattr(m, "contacto_id", None)) if hasattr(m, "contacto_id") else None
+        cc = conceptos_map.get(getattr(m, "concepto_id", None)) if hasattr(m, "concepto_id") else None
         pagos_json.append({
             "id": m.id,
             "fecha": m.fecha,
             "valor": m.valor,
             "tipo": m.tipo,
             "concepto": m.concepto,
+            "concepto_id": m.concepto_id,
+            "concepto_nombre": (cc or {}).get("nombre", ""),
             "medio": m.medio,
             "referencia": m.referencia,
             "observacion": m.observacion,
@@ -1156,6 +1192,7 @@ def inicio():
             "imagen_url": m.imagen_url,
             "latitud": m.latitud,
             "longitud": m.longitud,
+            "contacto_id": m.contacto_id,
             "contacto_nombre": (c or {}).get("nombre", ""),
             "contacto_telefono": (c or {}).get("telefono", ""),
         })
@@ -1173,6 +1210,8 @@ def inicio():
         ids_vistos_list=list(ids_vistos),
         supabase_url=SUPABASE_URL,
         supabase_anon_key=SUPABASE_ANON_KEY,
+        contactos=contactos,
+        conceptos=conceptos,
     )
 
 
@@ -1193,6 +1232,7 @@ def nuevo():
         "paginas/nuevo.html",
         datos=None,
         contactos=listar_contactos(),
+        conceptos=listar_conceptos(),
     )
 
 
@@ -1691,7 +1731,12 @@ def procesar_imagen():
             )
             return redirect(url_for("nuevo"))
 
-    return render_template("paginas/nuevo.html", datos=datos, contactos=listar_contactos())
+    return render_template(
+        "paginas/nuevo.html",
+        datos=datos,
+        contactos=listar_contactos(),
+        conceptos=listar_conceptos(),
+    )
 
 
 @app.route("/agregar", methods=["POST"])
@@ -1728,12 +1773,14 @@ def agregar():
     latitud = float(latitud_str) if latitud_str else None
     longitud = float(longitud_str) if longitud_str else None
     contacto_id = int(contacto_id_str) if contacto_id_str.isdigit() else None
+    concepto_id = resolver_concepto_id(concepto)
 
     movimiento = {
         "fecha": fecha,
         "valor": valor,
         "tipo": tipo,
         "concepto": concepto,
+        "concepto_id": concepto_id,
         "medio": medio,
         "referencia": referencia,
         "observacion": observacion,
@@ -2011,15 +2058,22 @@ def enviar_correo():
 @app.route("/marcar-visto/<int:pago_id>", methods=["POST"])
 @login_requerido
 def marcar_visto_ruta(pago_id):
-    marcar_visto(session["usuario"], pago_id)
-    no_vistos = obtener_no_vistos(session["usuario"])
+    usuario = session.get("usuario") or session.get("email")
+    if not usuario:
+        return jsonify(ok=False, error="sesion sin usuario, recarga login"), 401
+    try:
+        marcar_visto(usuario, pago_id)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
+    no_vistos = obtener_no_vistos(usuario)
     return jsonify(ok=True, no_vistos=no_vistos)
 
 
 @app.route("/no-vistos")
 @login_requerido
 def no_vistos_ruta():
-    no_vistos = obtener_no_vistos(session["usuario"])
+    usuario = session.get("usuario") or session.get("email")
+    no_vistos = obtener_no_vistos(usuario)
     return jsonify(no_vistos=no_vistos)
 
 

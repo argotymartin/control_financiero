@@ -58,8 +58,31 @@
     .pago-card .card-extra { grid-column: 1 / -1; font-size: 12px; color: #666; display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px solid #F5F5F5; padding-top: 8px; }
     .pago-card .card-extra strong { color: #333; font-weight: 600; }
 
+    /* ---- Barra filtros ---- */
+    .filtros-bar {
+        display: flex; flex-wrap: wrap; gap: 10px;
+        padding: 12px; background: #fff; border-radius: 10px;
+        margin: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        align-items: flex-end;
+    }
+    .filtros-bar .filtro-grupo { display: flex; flex-direction: column; gap: 4px; min-width: 130px; flex: 1 1 130px; }
+    .filtros-bar label { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; }
+    .filtros-bar input[type="date"], .filtros-bar select {
+        padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+        font-size: 14px; background: white; min-height: 40px;
+    }
+    .filtros-bar .btn-limpiar {
+        padding: 8px 14px; background: #6c757d; color: white; border: none;
+        border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; min-height: 40px;
+    }
+    .filtros-bar .btn-limpiar:hover { background: #5a6268; }
+    .filtros-resumen { padding: 0 12px 8px; font-size: 12px; color: #666; }
+    .filtros-resumen strong { color: #333; }
+
     /* Resumen mobile: 2 col grid */
     @media (max-width: 767px) {
+        .filtros-bar { flex-direction: column; align-items: stretch; }
+        .filtros-bar .filtro-grupo { min-width: 0; }
         .resumen {
             display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px !important;
             padding: 12px !important;
@@ -101,6 +124,45 @@
             </div>
         </div>
     </div>
+
+    <div class="filtros-bar">
+        <div class="filtro-grupo">
+            <label for="f-desde">Desde</label>
+            <input type="date" id="f-desde" onchange="aplicarFiltros()">
+        </div>
+        <div class="filtro-grupo">
+            <label for="f-hasta">Hasta</label>
+            <input type="date" id="f-hasta" onchange="aplicarFiltros()">
+        </div>
+        <div class="filtro-grupo">
+            <label for="f-contacto">Contacto</label>
+            <select id="f-contacto" onchange="aplicarFiltros()">
+                <option value="">Todos</option>
+                {% for c in contactos %}
+                <option value="{{ c.id }}">{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filtro-grupo">
+            <label for="f-concepto">Concepto</label>
+            <select id="f-concepto" onchange="aplicarFiltros()">
+                <option value="">Todos</option>
+                {% for c in conceptos %}
+                <option value="{{ c.id }}">{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filtro-grupo">
+            <label for="f-tipo">Tipo</label>
+            <select id="f-tipo" onchange="aplicarFiltros()">
+                <option value="">Todos</option>
+                <option value="ingreso">Ingreso</option>
+                <option value="egreso">Egreso</option>
+            </select>
+        </div>
+        <button class="btn-limpiar" onclick="limpiarFiltros()" type="button">Limpiar</button>
+    </div>
+    <div class="filtros-resumen" id="filtros-resumen"></div>
 
     {% call tabla_esqueleto(['No.','Comprobante','Fecha','Concepto','Debito','Credito','Saldo','Medio','Referencia','Destinatario','GPS','Accion']) %}
         <tbody id="tbody-movimientos"></tbody>
@@ -193,8 +255,9 @@
         if (p.imagen) {
             var puntoHtml = !idsVistos.has(p.id)
                 ? '<span class="punto-nuevo" id="punto-' + p.id + '"></span>' : '';
-            tdImg = '<div class="thumb-container" onclick="verYMarcar(\'' + imgUrl + '\',' + p.id + ')" id="thumb-' + p.id + '">'
-                + puntoHtml + '<img src="' + imgUrl + '" alt="Comprobante"></div>';
+            var tipTxt = escapeHtml(p.imagen);
+            tdImg = '<div class="thumb-container" title="' + tipTxt + '" onclick="verYMarcar(\'' + imgUrl + '\',' + p.id + ')" id="thumb-' + p.id + '">'
+                + puntoHtml + '<img src="' + imgUrl + '" alt="Comprobante" title="' + tipTxt + '"></div>';
         } else {
             tdImg = '<div class="sin-imagen">--</div>';
         }
@@ -246,8 +309,9 @@
         if (p.imagen) {
             var puntoHtml = !idsVistos.has(p.id)
                 ? '<span class="punto-nuevo" id="punto-card-' + p.id + '"></span>' : '';
-            thumbHtml = '<div class="card-thumb" id="thumb-card-' + p.id + '" onclick="verYMarcar(\'' + imgUrl + '\',' + p.id + ')">'
-                + puntoHtml + '<img src="' + imgUrl + '" alt="Comprobante"></div>';
+            var tipTxt = escapeHtml(p.imagen);
+            thumbHtml = '<div class="card-thumb" title="' + tipTxt + '" id="thumb-card-' + p.id + '" onclick="verYMarcar(\'' + imgUrl + '\',' + p.id + ')">'
+                + puntoHtml + '<img src="' + imgUrl + '" alt="Comprobante" title="' + tipTxt + '"></div>';
         } else {
             thumbHtml = '<div class="card-thumb sin-img">sin img</div>';
         }
@@ -288,15 +352,76 @@
         return card;
     }
 
+    // ---- Filtros ----
+    function getFiltros() {
+        return {
+            desde: document.getElementById('f-desde').value || '',
+            hasta: document.getElementById('f-hasta').value || '',
+            contacto_id: document.getElementById('f-contacto').value || '',
+            concepto_id: document.getElementById('f-concepto').value || '',
+            tipo: document.getElementById('f-tipo').value || ''
+        };
+    }
+
+    function pagosVisibles() {
+        var f = getFiltros();
+        return pagosArr.filter(function(p) {
+            if (f.desde && (p.fecha || '') < f.desde) return false;
+            if (f.hasta && (p.fecha || '') > f.hasta) return false;
+            if (f.contacto_id && String(p.contacto_id || '') !== f.contacto_id) return false;
+            if (f.concepto_id && String(p.concepto_id || '') !== f.concepto_id) return false;
+            if (f.tipo && p.tipo !== f.tipo) return false;
+            return true;
+        });
+    }
+
+    function actualizarResumenFiltros(visibles) {
+        var f = getFiltros();
+        var partes = [];
+        if (f.desde) partes.push('Desde ' + f.desde);
+        if (f.hasta) partes.push('Hasta ' + f.hasta);
+        if (f.contacto_id) {
+            var sel = document.getElementById('f-contacto');
+            partes.push('Contacto: ' + sel.options[sel.selectedIndex].text);
+        }
+        if (f.concepto_id) {
+            var sel2 = document.getElementById('f-concepto');
+            partes.push('Concepto: ' + sel2.options[sel2.selectedIndex].text);
+        }
+        if (f.tipo) partes.push('Tipo: ' + f.tipo);
+        var el = document.getElementById('filtros-resumen');
+        if (partes.length === 0) {
+            el.textContent = '';
+        } else {
+            el.innerHTML = '<strong>Filtros:</strong> ' + partes.join(' · ') + ' &mdash; <strong>' + visibles + '</strong> de ' + pagosArr.length + ' movimientos';
+        }
+    }
+
+    function aplicarFiltros() { renderTbody(); }
+
+    function limpiarFiltros() {
+        document.getElementById('f-desde').value = '';
+        document.getElementById('f-hasta').value = '';
+        document.getElementById('f-contacto').value = '';
+        document.getElementById('f-concepto').value = '';
+        document.getElementById('f-tipo').value = '';
+        renderTbody();
+    }
+
     function renderTbody() {
-        pagosArr.sort(function(a, b) { return (a.id || 0) - (b.id || 0); });
+        pagosArr.sort(function(a, b) {
+            var df = (a.fecha || '').localeCompare(b.fecha || '');
+            if (df !== 0) return df;
+            return (a.id || 0) - (b.id || 0);
+        });
+        var visibles = pagosVisibles();
         var tbody = document.getElementById('tbody-movimientos');
         var cardsCont = document.getElementById('cards-movimientos');
         tbody.innerHTML = '';
         cardsCont.innerHTML = '';
         var acum = 0;
         var totIng = 0, totEgr = 0;
-        pagosArr.forEach(function(p, i) {
+        visibles.forEach(function(p, i) {
             acum += (p.tipo === 'ingreso' ? p.valor : -p.valor);
             if (p.tipo === 'ingreso') totIng += p.valor;
             else totEgr += p.valor;
@@ -309,11 +434,12 @@
         var saldoEl = document.getElementById('card-saldo');
         saldoEl.textContent = fmtPeso(saldo);
         saldoEl.style.color = saldo >= 0 ? '#28A745' : '#DC3545';
-        document.getElementById('card-count').textContent = pagosArr.length;
+        document.getElementById('card-count').textContent = visibles.length;
         document.getElementById('foot-ingresos').textContent = fmtPeso(totIng);
         document.getElementById('foot-egresos').textContent = fmtPeso(totEgr);
         document.getElementById('foot-saldo').textContent = fmtPeso(saldo);
-        document.getElementById('foot-count').textContent = pagosArr.length + ' movimientos';
+        document.getElementById('foot-count').textContent = visibles.length + ' movimientos';
+        actualizarResumenFiltros(visibles.length);
     }
 
     function flashFila(id) {

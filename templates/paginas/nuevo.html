@@ -49,7 +49,18 @@
                     {{ campo_texto('valor', 'Valor $', valor=datos.valor if datos else '', requerido=true) }}
                 {% endcall %}
                 {% call grupo_campos() %}
-                    {{ campo_texto('concepto', 'Concepto', placeholder='Ej: Nomina, Arriendo, Servicios') }}
+                    <div class="form-campo">
+                        <label>Concepto:</label>
+                        <input type="text" name="concepto" list="conceptos-list"
+                               placeholder="Ej: cuota_deuda, nomina, mercado" autocomplete="off"
+                               value="{{ datos.concepto if datos else '' }}">
+                        <datalist id="conceptos-list">
+                            {% for c in conceptos %}
+                            <option value="{{ c.nombre }}"></option>
+                            {% endfor %}
+                        </datalist>
+                        <small style="color:#666; font-size:11px;">Escribe pa autocompletar o crea uno nuevo</small>
+                    </div>
                     {{ campo_texto('medio', 'Medio de Pago', valor=datos.medio if datos else '') }}
                     {{ campo_texto('referencia', 'Referencia', valor=datos.referencia if datos else '') }}
                 {% endcall %}
